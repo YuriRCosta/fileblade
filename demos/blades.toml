@@ -1,0 +1,184 @@
+
+[demo]
+name             = "filetree-blades"
+output           = "DP-1"
+screen           = [5120, 1440]
+region           = { x = 0, y = 0, w = 1400, h = 1440 }
+portal           = false
+leading_blank_ms = 1200
+show_keys        = true
+fps              = 30
+settle_ms        = 1400
+gif_fps          = 10
+gif_width        = 1000
+
+[cursor]
+size    = 28
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+color       = "#7aa2f7"
+radius      = 42
+duration_ms = 520
+
+[caption]
+size       = 34
+fill       = "#c0caf5"
+background = "#13141c"
+font       = "JetBrains Mono Nerd Font"
+
+[points]
+idle       = [1200, 1300]
+gear       = [473, 49]
+props_right = [154, 476]
+props_below = [154, 441]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "Super+B focuses the left blade"
+ms = 2600
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 2200
+
+[[step]]
+kind = "annotate"
+text = "j / k move while the blade holds focus"
+ms = 2600
+
+[[step]]
+kind = "key"
+keys = "j"
+settle_ms = 500
+
+[[step]]
+kind = "key"
+keys = "j"
+settle_ms = 500
+
+[[step]]
+kind = "key"
+keys = "k"
+settle_ms = 900
+
+[[step]]
+kind = "annotate"
+text = "z opens quick nav, ranked by zoxide"
+ms = 3000
+
+[[step]]
+kind = "key"
+keys = "z"
+settle_ms = 1200
+
+[[step]]
+kind = "type"
+text = "agents"
+per_key_ms = 90
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "key"
+keys = "Return"
+settle_ms = 1600
+
+[[step]]
+kind = "annotate"
+text = "/ search: \"exact\"  -exclude  type:folder  format:md"
+ms = 3400
+
+[[step]]
+kind = "key"
+keys = "slash"
+settle_ms = 600
+
+[[step]]
+kind = "type"
+text = "readme type:file format:md"
+per_key_ms = 70
+
+[[step]]
+kind = "hold"
+ms = 2400
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Blade settings: any module in any blade"
+ms = 3000
+
+[[step]]
+kind = "move"
+to = "gear"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1200
+
+[[step]]
+kind = "move"
+to = "props_right"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1600
+
+[[step]]
+kind = "move"
+to = "props_below"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "click"
+settle_ms = 1400
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "toggleSettings"
+
+[[step]]
+kind = "hold"
+ms = 1000
+
+[[step]]
+kind = "annotate"
+text = "Super+B again closes the focused blade"
+ms = 2400
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 1800

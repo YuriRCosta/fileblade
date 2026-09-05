@@ -1,0 +1,97 @@
+use clap::error::ErrorKind;
+use fileblade::backend;
+use fileblade::public_cli::{self, RootCommand};
+use fileblade::{AppError, AppResult, server};
+use fileblade_output::{Format, Output};
+use std::io;
+use std::process::ExitCode;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+
+fn main() -> ExitCode {
+    match public_cli::parse(std::env::args_os()) {
+        Ok(cli) => {
+            let output = Arc::new(Output::new(cli.output.into(), cli.quiet));
+            match execute(cli.command, Arc::clone(&output)) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) if broken_pipe(&error) => ExitCode::SUCCESS,
+                Err(error) => {
+                    let _ = output.error(&error.to_string());
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Err(error) => clap_error(error),
+    }
+}
+
+fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
+    match command {
+        RootCommand::CompanionMutate => {
+            let started = std::time::Instant::now();
+            let result = fileblade::companion_mutations::stdin_request();
+            let _ = fileblade::audit::record(&fileblade::audit::Event {
+                via: "cli",
+                actor: "companion",
+                command: "companion-mutate",
+                arguments: &[],
+                outcome: &result,
+                started,
+            });
+            output.machine(&result?)?;
+            Ok(())
+        }
+        RootCommand::Backend { command } => {
+            let cancelled = AtomicBool::new(false);
+            let mut progress = |value| {
+                output.machine(&value)?;
+                Ok(())
+            };
+            let raw = std::env::args_os()
+                .skip(2)
+                .map(|value| value.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            let started = std::time::Instant::now();
+            let result = backend::dispatch(command, &cancelled, &mut progress);
+            let _ = fileblade::audit::record(&fileblade::audit::Event {
+                via: "cli",
+                actor: "cli",
+                command: raw.first().map_or("", String::as_str),
+                arguments: raw.get(1..).unwrap_or_default(),
+                outcome: &result,
+                started,
+            });
+            output.machine(&result?)?;
+            Ok(())
+        }
+        RootCommand::Serve(options) => server::run(options, output),
+        command => public_cli::run(command)?.emit(&output),
+    }
+}
+
+fn clap_error(error: clap::Error) -> ExitCode {
+    let kind = error.kind();
+    let rendered = error.to_string();
+    let arguments: Vec<String> = std::env::args_os()
+        .map(|value| value.to_string_lossy().into_owned())
+        .collect();
+    let json = arguments
+        .iter()
+        .any(|argument| argument == "--output=json" || argument == "-ojson")
+        || arguments.windows(2).any(|pair| {
+            matches!(pair[0].as_str(), "-o" | "--output") && pair[1].as_str() == "json"
+        });
+    let format = if json { Format::Json } else { Format::Text };
+    let output = Output::new(format, false);
+    if matches!(kind, ErrorKind::DisplayHelp | ErrorKind::DisplayVersion) {
+        let _ = output.text(rendered.trim_end());
+        ExitCode::SUCCESS
+    } else {
+        let _ = output.error(rendered.trim_end());
+        ExitCode::from(2)
+    }
+}
+
+fn broken_pipe(error: &AppError) -> bool {
+    matches!(error, AppError::Io(io_error) if io_error.kind() == io::ErrorKind::BrokenPipe)
+}

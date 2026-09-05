@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "data-goblin.fileblade",
+  "name": "FileBlade",
+  "version": "0.1.0-beta",
+  "author": "Kurt Buhler",
+  "license": "MIT",
+  "repository": "https://github.com/data-goblin/fileblade",
+  "minOmarchyVersion": "4.0.2",
+  "description": "Customizable IDE-like sidebars for managing files and referencing information in Omarchy.",
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

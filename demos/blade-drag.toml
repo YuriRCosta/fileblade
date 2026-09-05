@@ -1,0 +1,116 @@
+
+[demo]
+name             = "filetree-blade-drag"
+output           = "DP-1"
+screen           = [5120, 1440]
+region           = { x = 0, y = 0, w = 5120, h = 1440 }
+portal           = false
+leading_blank_ms = 1000
+show_keys        = false
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 10
+gif_width        = 1400
+
+[cursor]
+size    = 28
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+color       = "#7aa2f7"
+radius      = 42
+duration_ms = 520
+
+[caption]
+size       = 34
+fill       = "#c0caf5"
+background = "#13141c"
+font       = "JetBrains Mono Nerd Font"
+
+[points]
+idle            = [1200, 1300]
+props_title     = [56, 760]
+files_title     = [30, 48]
+props_title_top = [56, 48]
+files_bottom    = [60, 1330]
+right_edge      = [5100, 700]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "hold"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Drag a module title to move it: Properties above Files"
+ms = 3200
+
+[[step]]
+kind = "move"
+to = "props_title"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "hold"
+ms = 400
+
+[[step]]
+kind = "drag"
+hold_ms = 220
+to = "files_title"
+ease = "ease_in_out"
+ms = 1100
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "And back below Files"
+ms = 2600
+
+[[step]]
+kind = "move"
+to = "props_title_top"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "drag"
+hold_ms = 220
+to = "files_bottom"
+ease = "ease_in_out"
+ms = 1100
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Reach the right edge: the right blade slides out to take it"
+ms = 3600
+
+[[step]]
+kind = "move"
+to = "props_title"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "drag"
+hold_ms = 220
+to = "right_edge"
+ease = "ease_in_out"
+ms = 1600
+
+[[step]]
+kind = "hold"
+ms = 2200

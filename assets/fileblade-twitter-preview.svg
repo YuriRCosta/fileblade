@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">FileBlade</title>
+  <desc id="desc">FileBlade logo with the subtitle Customizable sidebars for managing files in Omarchy</desc>
+
+  <rect width="1200" height="1200" fill="#000000"/>
+
+  <image x="152" y="340" width="960" height="240" xlink:href="fileblade-logo.svg"/>
+
+  <text x="600"
+        text-anchor="middle"
+        fill="#7AA2F7"
+        font-family="JetBrainsMono Nerd Font, JetBrains Mono, monospace"
+        font-size="54"
+        font-weight="400">
+    <tspan x="600" y="715">Customizable sidebars for</tspan>
+    <tspan x="600" y="789">managing files in Omarchy</tspan>
+  </text>
+</svg>

@@ -1,0 +1,10 @@
+{
+  "id": "welcome",
+  "name": "Welcome",
+  "glyph": "󰋜",
+  "description": "First-launch offer to install the example agent extensions",
+  "entry": "Module.qml",
+  "hostContract": 1,
+  "singleton": true,
+  "minHeight": 200
+}

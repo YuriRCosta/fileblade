@@ -1,0 +1,36 @@
+[demo]
+name = "fileblade-double-click"
+output = "Virtual-1"
+capture = "screencopy"
+screen = [1920, 1080]
+region = { x = 0, y = 0, w = 1920, h = 1080 }
+portal = false
+leading_blank_ms = 0
+show_keys = false
+fps = 15
+settle_ms = 100
+
+[points]
+target = [POINT_X, POINT_Y]
+
+# Start beyond the preceding one-off democtl click's 1/2 ms timestamps.
+[[step]]
+kind = "hold"
+ms = 1000
+
+[[step]]
+kind = "move"
+to = "target"
+ms = 100
+
+[[step]]
+kind = "hold"
+ms = 150
+
+[[step]]
+kind = "click"
+settle_ms = 60
+
+[[step]]
+kind = "click"
+settle_ms = 300

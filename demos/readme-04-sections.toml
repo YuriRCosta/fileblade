@@ -1,0 +1,190 @@
+[demo]
+name             = "readme-04-sections"
+output           = "WAYLAND-1"
+capture          = "screencopy"
+screen           = [1920, 1080]
+region           = { x = 0, y = 0, w = 1920, h = 1080 }
+leading_blank_ms = 900
+show_keys        = true
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 12
+gif_width        = 1280
+
+[cursor]
+size    = 26
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style       = "pixel"
+pixel_size  = 6
+radius      = 46
+duration_ms = 620
+color       = "#7aa2f7"
+
+[keys]
+fill = "#7aa2f7"
+text = "#0e0e14"
+size = 34
+
+[points]
+idle = [1100, 900]
+root_row = [110, 177]
+props_title = [56, 559]
+files_body = [250, 150]
+props_title_top = [56, 49]
+props_body = [250, 1000]
+files_title = [56, 49]
+props_tab = [186, 49]
+tab_out = [250, 900]
+divider = [246, 537]
+divider_back = [246, 460]
+props_title_after = [56, 482]
+divider_up = [246, 300]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "move"
+to = "root_row"
+ease = "ease_in_out"
+ms = 500
+
+[[step]]
+kind = "click"
+settle_ms = 900
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 960, 540]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Sections are yours to arrange. Drag a title onto another section to reorder"
+ms = 4000
+
+[[step]]
+kind = "hold"
+ms = 600
+
+[[step]]
+kind = "move"
+to = "props_title"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "drag"
+to = "files_body"
+hold_ms = 320
+ease = "ease_in_out"
+ms = 1500
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Properties on top, files below. Drag it back the same way"
+ms = 3600
+
+[[step]]
+kind = "hold"
+ms = 600
+
+[[step]]
+kind = "move"
+to = "props_title_top"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "drag"
+to = "props_body"
+hold_ms = 320
+ease = "ease_in_out"
+ms = 1500
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "The divider resizes them"
+ms = 3400
+
+[[step]]
+kind = "move"
+to = "divider"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "drag"
+to = "divider_up"
+hold_ms = 320
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 1000
+
+[[step]]
+kind = "move"
+to = "divider_up"
+ms = 1
+
+[[step]]
+kind = "drag"
+to = "divider_back"
+hold_ms = 320
+ease = "ease_in_out"
+ms = 1100
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "Drop on a title instead and they become tabs"
+ms = 4200
+
+[[step]]
+kind = "move"
+to = "props_title_after"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "drag"
+to = "files_title"
+hold_ms = 320
+ease = "ease_in_out"
+ms = 1500
+
+[[step]]
+kind = "hold"
+ms = 2200
+
+[[step]]
+kind = "hold"
+ms = 1200

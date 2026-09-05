@@ -1,0 +1,637 @@
+# Overview on the live seat, workspace 3, captions at the bottom. Both blades
+# open, the left blade tour (tree, git, sort, colour, search, quick nav,
+# properties), the right blade tour (skills, disable one, filter by agent,
+# memory by tokens), then both close. The pointer parks inside the blade, off the
+# text, while words are typed (keyboard focus follows the pointer out of a blade;
+# a tooltip or the cursor would cover the field), and every zoom keeps the
+# pointer in the picture (democtl refuses the script otherwise).
+#
+# Prepare before recording (points assume DP-1 at 2560x1440, scale 1, blades at
+# their saved widths 522 left and 492 right, slots at their saved fractions):
+#   hyprctl eval 'hl.monitor({ output = "DP-1", mode = "2560x1440@60", position = "auto", scale = 1 })'
+#   hyprctl dispatch "hl.dsp.focus({ workspace = \"3\" })"   (an empty workspace)
+#   omarchy-shell data-goblin.fileblade.control setRoot "$HOME/git/fileblade"
+#   omarchy-shell data-goblin.fileblade.control clearSearch && omarchy-shell data-goblin.fileblade.control setSearchDeep false
+#   omarchy-shell data-goblin.fileblade.control setBladeTab right 0 0
+#   omarchy-shell data-goblin.fileblade.control setBladeTab right 1 0
+#   omarchy-shell data-goblin.fileblade.control collapsePath "$HOME/git/fileblade/demos"
+#   clear the skills filter (it persists in blade state): search icon, Ctrl+A, BackSpace, Escape
+#   fileblade blade close left && fileblade blade close right
+#   democtl doctor                     (positioning error must be 0)
+# The take disables the test-omarchy-plugin skill and colours the assets folder;
+# restore and clear afterwards (bin ids come from `fileblade _backend bin-list --module skills`):
+#   fileblade _backend bin-restore --module skills --id bin:<dir>
+#   omarchy-shell data-goblin.fileblade.control clearFolderColor "$HOME/git/fileblade/assets"
+
+[demo]
+name             = "overview"
+output           = "DP-1"
+screen           = [2560, 1440]
+region           = { x = 0, y = 0, w = 2560, h = 1440 }
+portal           = false
+leading_blank_ms = 1500
+show_keys        = false
+fps              = 30
+settle_ms        = 1400
+gif              = false
+
+[cursor]
+size    = 28
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style       = "pixel"
+pixel_size  = 6
+radius      = 52
+duration_ms = 620
+color       = "#7aa2f7"
+
+[caption]
+size       = 76
+fill       = "#e6e6f0"
+background = "#12101a"
+font       = "JetBrains Mono Nerd Font"
+
+[points]
+idle              = [1500, 1300]
+park_left         = [310, 203]
+park_props        = [900, 1050]
+park_right        = [2420, 48]
+park_memory       = [2420, 808]
+demos_chevron     = [47, 420]
+demos_child       = [140, 525]
+root_summary      = [400, 245]
+header_modified   = [392, 203]
+back_button       = [25, 203]
+assets_row        = [100, 280]
+menu_swatch       = [314, 898]
+search_field      = [150, 163]
+chip_fzf          = [487, 163]
+skill_row_test    = [2200, 622]
+skill_row_action  = [2543, 622]
+dialog_disable    = [2401, 443]
+skills_search     = [2103, 85]
+memory_row        = [2200, 1020]
+memory_tokens     = [2463, 847]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "hold"
+ms = 1500
+
+[[step]]
+kind = "annotate"
+text = "Super+B and Super+Shift+B open the blades"
+ms = 4000
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusRight"
+
+[[step]]
+kind = "hold"
+ms = 1600
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 2400
+
+[[step]]
+kind = "move"
+to = "park_left"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 1280, 720]
+ease = "ease_in_out"
+ms = 1100
+
+[[step]]
+kind = "annotate"
+text = "Click through the tree, or move with j and k"
+ms = 6100
+
+[[step]]
+kind = "hold"
+ms = 1000
+
+[[step]]
+kind = "move"
+to = "demos_chevron"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "click"
+settle_ms = 1600
+
+[[step]]
+kind = "move"
+to = "demos_child"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "annotate"
+text = "Git status on every row, with a summary for the repository"
+ms = 4500
+
+[[step]]
+kind = "move"
+to = "root_summary"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "hold"
+ms = 3600
+
+[[step]]
+kind = "annotate"
+text = "Click a column header to sort, again to flip, again to clear"
+ms = 6000
+
+[[step]]
+kind = "move"
+to = "header_modified"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "click"
+settle_ms = 1400
+
+[[step]]
+kind = "zoom"
+to = [0, 200, 1280, 720]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Right-click a row for its actions and folder colors"
+ms = 6400
+
+[[step]]
+kind = "move"
+to = "assets_row"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+button = "right"
+settle_ms = 2200
+
+[[step]]
+kind = "move"
+to = "menu_swatch"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "hold"
+ms = 600
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "move"
+to = "park_left"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 1280, 720]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Search filters the tree as you type"
+ms = 5200
+
+[[step]]
+kind = "move"
+to = "search_field"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "click"
+settle_ms = 800
+
+[[step]]
+kind = "move"
+to = "park_left"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "type"
+text = "blade"
+per_key_ms = 160
+
+[[step]]
+kind = "hold"
+ms = 2000
+
+[[step]]
+kind = "annotate"
+text = "fzf searches the whole root; type: and format: narrow it down"
+ms = 12700
+
+[[step]]
+kind = "move"
+to = "chip_fzf"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 800
+
+[[step]]
+kind = "move"
+to = "park_left"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "hold"
+ms = 3200
+
+[[step]]
+kind = "key"
+keys = "ctrl+a"
+settle_ms = 300
+
+[[step]]
+kind = "type"
+text = "type:file format:qml -test"
+per_key_ms = 130
+
+[[step]]
+kind = "hold"
+ms = 3600
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 1600
+
+[[step]]
+kind = "annotate"
+text = "Shift+Z jumps to any folder you have visited, zoxide style"
+ms = 5800
+
+[[step]]
+kind = "key"
+keys = "shift+z"
+settle_ms = 900
+
+[[step]]
+kind = "type"
+text = "agents"
+per_key_ms = 150
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "key"
+keys = "Return"
+settle_ms = 2600
+
+[[step]]
+kind = "annotate"
+text = "Back takes you home again"
+ms = 3000
+
+[[step]]
+kind = "move"
+to = "back_button"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+settle_ms = 2200
+
+[[step]]
+kind = "annotate"
+text = "Select a file and the properties pane follows"
+ms = 10500
+
+[[step]]
+kind = "move"
+to = "demos_chevron"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "click"
+settle_ms = 1600
+
+[[step]]
+kind = "move"
+to = "demos_child"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1400
+
+[[step]]
+kind = "zoom"
+to = [0, 360, 1280, 720]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 2000
+
+[[step]]
+kind = "move"
+to = "park_props"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "zoom"
+to = [0, 720, 1280, 720]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 3000
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 2560, 1440]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 1600
+
+[[step]]
+kind = "annotate"
+text = "The right blade holds extensions: skills, hooks and MCP servers"
+ms = 3400
+
+[[step]]
+kind = "move"
+to = "park_right"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "zoom"
+to = [1280, 0, 1280, 720]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 2600
+
+[[step]]
+kind = "annotate"
+text = "Disable a skill in place. It goes to a bin, not the trash"
+ms = 8900
+
+[[step]]
+kind = "move"
+to = "skill_row_test"
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "click"
+settle_ms = 1400
+
+[[step]]
+kind = "move"
+to = "skill_row_action"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "move"
+to = "dialog_disable"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 3200
+
+[[step]]
+kind = "annotate"
+text = "Skills from plugins and marketplaces sit below"
+ms = 7200
+
+[[step]]
+kind = "move"
+to = "park_right"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "key"
+keys = "ctrl+d"
+settle_ms = 2200
+
+[[step]]
+kind = "key"
+keys = "ctrl+d"
+settle_ms = 2600
+
+[[step]]
+kind = "key"
+keys = "g"
+settle_ms = 1800
+
+[[step]]
+kind = "annotate"
+text = "Filter by agent: what Codex reads, what Claude Code reads"
+ms = 14200
+
+[[step]]
+kind = "move"
+to = "skills_search"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+settle_ms = 800
+
+[[step]]
+kind = "move"
+to = "park_right"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "type"
+text = "agent:codex"
+per_key_ms = 150
+
+[[step]]
+kind = "hold"
+ms = 3000
+
+[[step]]
+kind = "key"
+keys = "ctrl+a"
+settle_ms = 300
+
+[[step]]
+kind = "type"
+text = "agent:claude-code"
+per_key_ms = 150
+
+[[step]]
+kind = "hold"
+ms = 3000
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Memory files below, sorted by tokens"
+ms = 13600
+
+[[step]]
+kind = "zoom"
+to = [1280, 720, 1280, 720]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "move"
+to = "memory_row"
+ease = "ease_in_out"
+ms = 1100
+
+[[step]]
+kind = "click"
+settle_ms = 1200
+
+[[step]]
+kind = "move"
+to = "memory_tokens"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "click"
+settle_ms = 1800
+
+[[step]]
+kind = "move"
+to = "park_memory"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "key"
+keys = "ctrl+d"
+settle_ms = 2400
+
+[[step]]
+kind = "key"
+keys = "ctrl+u"
+settle_ms = 1800
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 2560, 1440]
+ease = "ease_in_out"
+ms = 1300
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Super+B closes the blade you are in"
+ms = 3800
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusRight"
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 500
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 2000

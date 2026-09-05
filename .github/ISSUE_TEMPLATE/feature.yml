@@ -1,0 +1,19 @@
+name: Feature or change
+description: Suggest something FileBlade should do differently
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem you want addressed?
+      description: The challenge you have that the feature can help with
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What is the feature?
+      description: Describe what you'd like incorproated
+    validations:
+      required: true

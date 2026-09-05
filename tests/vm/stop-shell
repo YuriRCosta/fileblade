@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+"${OVM:?set OVM to the headless VM harness executable}" ssh '
+set -eu
+launcher="^/bin/bash /usr/share/omarchy/bin/omarchy-launch-shell$"
+pkill -TERM -f "$launcher" || true
+for attempt in $(seq 1 50); do
+  pgrep -f "$launcher" >/dev/null || break
+  sleep 0.2
+done
+if pgrep -f "$launcher" >/dev/null; then
+  echo "guest shell supervisor did not stop" >&2
+  exit 1
+fi
+pkill -TERM -x quickshell || true
+for attempt in $(seq 1 50); do
+  if ! pgrep -x quickshell >/dev/null; then
+    sleep 2
+    if ! pgrep -x quickshell >/dev/null; then
+      exit 0
+    fi
+  fi
+  sleep 0.2
+done
+echo "guest Quickshell did not stay stopped" >&2
+exit 1
+'

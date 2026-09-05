@@ -1,0 +1,203 @@
+# Blade tour on a blank workspace: shortcut, search, quick nav, rearrange.
+# Prepare before recording:
+#   omarchy-theme-set ethereal
+#   hyprctl dispatch "hl.dsp.focus({ workspace = \"5\" })"   (an empty workspace)
+#   fileblade blade set left files,properties && fileblade blade set right notes
+#   fileblade blade close left && fileblade blade close right
+#   fileblade root ~
+# Points assume a 509 px left blade; `blade set` leaves both slots at auto
+# height, so Files and Properties split the blade evenly.
+
+[demo]
+name             = "filetree-blade-tour"
+output           = "DP-1"
+screen           = [2560, 1440]
+region           = { x = 0, y = 0, w = 1600, h = 1440 }
+portal           = false
+leading_blank_ms = 1200
+show_keys        = true
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 10
+gif_width        = 1000
+
+[cursor]
+size    = 28
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+color       = "#7aa2f7"
+radius      = 64
+duration_ms = 910
+style       = "pixel"
+pixel_size  = 11
+
+[keys]
+fill = "#7aa2f7"
+text = "#0e0e14"
+size = 38
+
+[caption]
+size       = 80
+fill       = "#e6e6f0"
+background = "#12101a"
+font       = "JetBrains Mono Nerd Font"
+
+[points]
+idle            = [1150, 1250]
+props_title     = [56, 760]
+files_title     = [30, 48]
+props_title_top = [56, 48]
+below_files     = [60, 1320]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "The blade expands (and focuses) with a shortcut"
+anchor = "bottom"
+ms = 3900
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 1950
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 1000, 900]
+ease = "ease_in_out"
+ms = 1040
+
+[[step]]
+kind = "hold"
+ms = 650
+
+[[step]]
+kind = "annotate"
+text = "You can quick search with '/' like 'ripgrep'"
+anchor = "bottom"
+ms = 4420
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 820, 738]
+ease = "ease_in_out"
+ms = 910
+
+[[step]]
+kind = "key"
+keys = "slash"
+settle_ms = 1010
+
+[[step]]
+kind = "type"
+text = "readme type:file"
+per_key_ms = 140
+
+[[step]]
+kind = "hold"
+ms = 3120
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 1350
+
+[[step]]
+kind = "annotate"
+text = "You can quick nav to a dir with 'z' like 'zoxide'"
+anchor = "bottom"
+ms = 4420
+
+[[step]]
+kind = "key"
+keys = "z"
+settle_ms = 1690
+
+[[step]]
+kind = "type"
+text = "agents"
+per_key_ms = 160
+
+[[step]]
+kind = "hold"
+ms = 1950
+
+[[step]]
+kind = "key"
+keys = "Return"
+settle_ms = 2700
+
+[[step]]
+kind = "annotate"
+text = "You can rearrange sections to different parts of the pane"
+anchor = "bottom"
+ms = 5460
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 1100, 990]
+ease = "ease_in_out"
+ms = 910
+
+[[step]]
+kind = "move"
+to = "props_title"
+ease = "ease_in_out"
+ms = 910
+
+[[step]]
+kind = "drag"
+to = "files_title"
+hold_ms = 310
+ease = "ease_in_out"
+ms = 1430
+
+[[step]]
+kind = "hold"
+ms = 1950
+
+[[step]]
+kind = "move"
+to = "props_title_top"
+ease = "ease_in_out"
+ms = 650
+
+[[step]]
+kind = "drag"
+to = "below_files"
+hold_ms = 310
+ease = "ease_in_out"
+ms = 1430
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 1600, 1440]
+ease = "ease_in_out"
+ms = 1040
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 1200

@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Run every UI expectation script against the headless Omarchy VM.
+# Usage: [OVM=...] [SKIP_PUSH=1] tests/vm/expectations/run [script-glob]
+set -u
+cd "$(dirname "$0")"
+REPO=$(cd ../../.. && pwd)
+export OVM=${OVM:?set OVM to the headless VM harness executable}
+[[ -x $OVM ]] || { echo "ovm harness not found at $OVM" >&2; exit 2; }
+
+# One VM, many agents. Key on real guest activity rather than on whether some
+# agent is merely working in the repo: another ovm process, or a screenshot
+# written in the last 90 seconds, both mean someone else is driving.
+SHOTS_DIR=${SHOTS_DIR:-$HOME/.local/share/test-omarchy-plugin/run/shots}
+# An ovm invocation is `bash <path>/scripts/ovm <subcommand>`, so the script path
+# is argv[0] or argv[1]. Matching the whole command line also catches any wrapper
+# whose -c string merely mentions the path, including this runner's own launcher.
+ovm_invocation() {
+  local pid=$1 argv
+  mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null || return 1
+  [[ ${argv[0]:-} == */scripts/ovm ]] && return 0
+  [[ ${argv[1]:-} == */scripts/ovm ]] && return 0
+  return 1
+}
+
+vm_driver() {
+  local mine others pid pgid age
+  mine=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
+  others=""
+  for pid in $(pgrep -f 'scripts/ovm' 2>/dev/null); do
+    [[ $pid == $$ ]] && continue
+    ovm_invocation "$pid" || continue
+    pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [[ -n $pgid && $pgid == "$mine" ]] && continue
+    # An ovm call running this long is wedged, not driving. A common cause is
+    # `ovm ssh setsid -f foot` without redirecting, which holds ssh open.
+    age=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')
+    [[ -n $age && $age -gt ${OVM_STUCK_SECONDS:-180} ]] && continue
+    others+="$pid "
+  done
+  [[ -n ${others// /} ]] && { echo "ovm process: ${others% }"; return 0; }
+  if [[ -d $SHOTS_DIR ]] && find "$SHOTS_DIR" -name '*.png' -newermt '-90 seconds' -print -quit 2>/dev/null | grep -q .; then
+    echo "fresh screenshots"
+    return 0
+  fi
+  return 1
+}
+
+if [[ ${FORCE_RUN:-0} != 1 ]]; then
+  wait_budget=${VM_WAIT_SECONDS:-2700}
+  waited=0
+  announced=0
+  while reason=$(vm_driver); do
+    ((announced)) || { echo "waiting for the VM: $reason" >&2; announced=1; }
+    ((waited >= wait_budget)) && {
+      echo "gave up after ${wait_budget}s; the guest is still driven ($reason)." >&2
+      echo "set FORCE_RUN=1 to run anyway, or VM_WAIT_SECONDS to wait longer." >&2
+      exit 3
+    }
+    sleep 20
+    waited=$((waited + 20))
+  done
+  ((waited)) && echo "VM free after ${waited}s" >&2
+fi
+
+# A guest killed mid-session can fail its next boot. Try once more from a
+# clean overlay rather than reporting every case as failed.
+guest_up() { "$OVM" status 2>/dev/null | head -1 | grep -q running && "$OVM" status 2>/dev/null | grep -q '^ssh: ok'; }
+if ! guest_up; then
+  "$OVM" start >/dev/null 2>&1
+  if ! guest_up; then
+    echo "guest did not come up; retrying from a clean overlay" >&2
+    "$OVM" stop >/dev/null 2>&1
+    "$OVM" start --fresh >/dev/null 2>&1 || { echo "guest will not boot" >&2; exit 2; }
+    guest_up || { echo "guest booted but ssh never came up" >&2; exit 2; }
+  fi
+fi
+"$OVM" ssh 'omarchy-toggle-idle stay-awake' >/dev/null 2>&1
+"$OVM" ipc notifications dismissAll >/dev/null 2>&1
+
+# A crash reporter left behind by an earlier shell is a real window: it takes
+# the active-window slot and its text lands in every OCR. Clear them before the
+# run and again whenever the shell is restarted.
+clear_crash_reporters() { "$OVM" ssh 'pkill -xf /usr/bin/quickshell' >/dev/null 2>&1; true; }
+restart_shell_clean() {
+  "$REPO/tests/vm/stop-shell" || return 1
+  "$OVM" restart-shell >/dev/null 2>&1 || return 1
+  sleep 2
+  clear_crash_reporters
+}
+clear_crash_reporters
+
+if [[ ${SKIP_PUSH:-0} != 1 ]]; then
+  ( cd "$REPO" && tools/bundle build >/dev/null ) || exit 2
+  "$REPO/tests/vm/stop-shell" || exit 2
+  "$OVM" ssh 'mv ~/.cache/quickshell/qmlcache ~/.cache/quickshell/qmlcache.stale 2>/dev/null; true' >/dev/null 2>&1
+  "$OVM" push "$REPO" >/dev/null || exit 2
+  "$OVM" restart-shell >/dev/null || exit 2
+  sleep 2
+  clear_crash_reporters
+fi
+
+# A shell that segfaults mid-run does not announce itself: the cases after it
+# just fail oddly. Count the crash reports around the run and say so.
+CRASH_DIR=/home/omarchy/.cache/quickshell/crashes
+crash_count() { "$OVM" ssh "ls $CRASH_DIR 2>/dev/null | wc -l" 2>/dev/null | tr -d ' \r'; }
+crashes_before=$(crash_count)
+
+pattern=${1:-'[0-9][0-9]-*.sh'}
+total=0; failed=0; failing=()
+# A script that fails while the shell was crashing under it proves nothing, so
+# it is run again on a fresh shell. The crash counter has to have moved for the
+# retry to happen, so an ordinary failure is still reported the first time.
+crashed_during() {
+  local before=$1 after=$2
+  [[ $before =~ ^[0-9]+$ && $after =~ ^[0-9]+$ ]] && ((after > before))
+}
+
+for script in $pattern; do
+  [[ -f $script ]] || continue
+  echo "── $script"
+  before=$(crash_count)
+  bash "$script" && ok=1 || ok=0
+  after=$(crash_count)
+  if ((!ok)) && crashed_during "$before" "$after"; then
+    echo "   the shell crashed under this script; retrying it once on a fresh shell" >&2
+    restart_shell_clean
+    bash "$script" && ok=1 || ok=0
+  elif crashed_during "$before" "$after"; then
+    echo "   the shell crashed under this script but it passed; clearing the reporter" >&2
+    restart_shell_clean
+  fi
+  ((ok)) || { failed=$((failed + 1)); failing+=("$script"); }
+  total=$((total + 1))
+done
+
+crashes_after=$(crash_count)
+if [[ ${crashes_before:-0} =~ ^[0-9]+$ && ${crashes_after:-0} =~ ^[0-9]+$ ]] && ((crashes_after > crashes_before)); then
+  echo
+  echo "WARNING: the shell crashed $((crashes_after - crashes_before)) time(s) during this run." >&2
+  echo "Reports are under $CRASH_DIR in the guest. Treat the failures above as suspect." >&2
+fi
+
+echo
+echo "scripts: $total, failed: $failed"
+((failed)) && printf 'failing: %s\n' "${failing[*]}"
+exit $((failed > 0))

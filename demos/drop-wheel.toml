@@ -1,0 +1,64 @@
+[demo]
+name = "drop-wheel"
+output = "DP-1"
+screen = [2560, 1440]
+region = { x = 0, y = 0, w = 2560, h = 1440 }
+fps = 30
+show_keys = true
+
+[live]
+countdown_ms = 3000
+
+[voice]
+enabled = true
+highpass_hz = 80
+gate_attack_ms = 8
+gate_release_ms = 220
+gate_range_db = -22
+compressor_ratio = 3
+compressor_attack_ms = 10
+compressor_release_ms = 120
+deesser = 0.4
+loudness_lufs = -16
+true_peak_db = -1.5
+
+[cursor]
+size = 28
+fill = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style = "pixel"
+pixel_size = 6
+radius = 52
+duration_ms = 620
+color = "#7aa2f7"
+
+[[cut]]
+from_ms = 0
+to_ms = 3000
+
+[[cut]]
+from_ms = 24500
+to_ms = 30670
+
+[[step]]
+at_ms = 3000
+kind = "zoom"
+to = [0, 280, 1024, 576]
+ease = "ease_out"
+ms = 120
+
+[[step]]
+at_ms = 3600
+kind = "zoom"
+to = [880, 260, 1024, 576]
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+at_ms = 7200
+kind = "zoom"
+to = [0, 0, 2560, 1440]
+ease = "ease_in_out"
+ms = 900

@@ -1,0 +1,69 @@
+[workspace]
+members = ["crates/fileblade-output"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+rust-version = "1.98"
+
+[workspace.dependencies]
+base64 = "0.23.1"
+chrono = { version = "0.4.45", default-features = false }
+clap = "4.6.6"
+crossbeam-channel = "0.5.16"
+filetime = "0.2.29"
+ignore = "0.4.33"
+image = { version = "0.25.10", default-features = false }
+nucleo = "0.5.0"
+libc = "0.2.189"
+regex = "1.13.1"
+rustix = "1.1.4"
+serde = "1.0.229"
+serde_json = "1.0.151"
+tempfile = "3.27.0"
+thiserror = "2.0.20"
+url = "2.5.8"
+uuid = "1.26.0"
+xattr = "1.6.1"
+
+[package]
+name = "fileblade"
+version = "0.1.0-beta"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+base64.workspace = true
+chrono = { workspace = true, default-features = false, features = ["clock"] }
+clap = { workspace = true, features = ["derive"] }
+crossbeam-channel.workspace = true
+fileblade-output = { path = "crates/fileblade-output" }
+filetime.workspace = true
+ignore.workspace = true
+image = { workspace = true, features = ["jpeg", "png", "webp"] }
+libc.workspace = true
+nucleo.workspace = true
+regex.workspace = true
+rustix = { workspace = true, features = ["event", "fs", "process"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+xattr.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+opt-level = "s"
+
+[[bin]]
+name = "fileblade"
+path = "src/main.rs"

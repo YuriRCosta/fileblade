@@ -1,0 +1,31 @@
+# Local agent working notes
+CLAUDE.local.md
+.claude/
+.codex/
+
+# Local agent and VM scratch worktrees
+/.focus-*/
+/.menu-*/
+/.ovm*/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.*
+secrets/
+
+# Editor and OS noise
+.DS_Store
+*.log
+*.tmp
+*.swp
+/target/
+__pycache__/
+/.fileblade-bin.??????
+
+# Local demo renders and recorder intermediates
+/assets/demos/*.gif
+/assets/demos/*.mp4
+/assets/demos/*.take/

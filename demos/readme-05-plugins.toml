@@ -1,0 +1,165 @@
+[demo]
+name             = "readme-05-plugins"
+output           = "WAYLAND-1"
+capture          = "screencopy"
+screen           = [1920, 1080]
+region           = { x = 0, y = 0, w = 1920, h = 1080 }
+leading_blank_ms = 900
+show_keys        = true
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 12
+gif_width        = 1280
+
+[cursor]
+size    = 26
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style       = "pixel"
+pixel_size  = 6
+radius      = 46
+duration_ms = 620
+color       = "#7aa2f7"
+
+[keys]
+fill = "#7aa2f7"
+text = "#0e0e14"
+size = 34
+
+[points]
+idle = [700, 900]
+tab_skills = [1496, 48]
+tab_hooks = [1572, 48]
+tab_memory = [1496, 608]
+tab_notes = [1572, 608]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusRight"
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Super+Shift+B opens the right blade. Put whatever you want in the sidebars"
+ms = 4000
+
+[[step]]
+kind = "hold"
+ms = 4000
+
+[[step]]
+kind = "annotate"
+text = "There is a plugin system, so you can slot in anything you want to reference"
+ms = 4200
+
+[[step]]
+kind = "hold"
+ms = 4200
+
+[[step]]
+kind = "annotate"
+text = "For instance, plugins for viewing and managing agent skills and memory files"
+ms = 4400
+
+[[step]]
+kind = "hold"
+ms = 2000
+
+[[step]]
+kind = "zoom"
+to = [1200, 0, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "hold"
+ms = 1500
+
+[[step]]
+kind = "annotate"
+text = "Skills, grouped by scope and plugin"
+ms = 3200
+
+[[step]]
+kind = "hold"
+ms = 3200
+
+[[step]]
+kind = "annotate"
+text = "Hooks live in the same slot as tabs, MCP servers too"
+ms = 3800
+
+[[step]]
+kind = "move"
+to = "tab_hooks"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+settle_ms = 3000
+
+[[step]]
+kind = "move"
+to = "tab_skills"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "click"
+settle_ms = 1200
+
+[[step]]
+kind = "zoom"
+to = [1200, 540, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Memory files below, with a Notes tab beside them"
+ms = 3800
+
+[[step]]
+kind = "hold"
+ms = 2000
+
+[[step]]
+kind = "move"
+to = "tab_notes"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 2600
+
+[[step]]
+kind = "move"
+to = "tab_memory"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "click"
+settle_ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "Write your own: a blade module is a QML file and a manifest. See EXTENSIONS.md"
+ms = 4400
+
+[[step]]
+kind = "hold"
+ms = 4400

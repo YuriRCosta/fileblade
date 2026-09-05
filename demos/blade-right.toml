@@ -1,0 +1,103 @@
+
+[demo]
+name             = "filetree-blade-right"
+output           = "DP-1"
+screen           = [5120, 1440]
+region           = { x = 3720, y = 0, w = 1400, h = 1440 }
+portal           = false
+leading_blank_ms = 1200
+show_keys        = true
+fps              = 30
+settle_ms        = 1400
+gif_fps          = 10
+gif_width        = 1000
+
+[cursor]
+size    = 28
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+color       = "#7aa2f7"
+radius      = 42
+duration_ms = 520
+
+[caption]
+size       = 34
+fill       = "#c0caf5"
+background = "#13141c"
+font       = "JetBrains Mono Nerd Font"
+
+[points]
+idle = [4000, 1300]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "hold"
+ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "Super+Shift+B focuses the right blade"
+ms = 2600
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusRight"
+
+[[step]]
+kind = "hold"
+ms = 2000
+
+[[step]]
+kind = "annotate"
+text = "Notes keeps its text in blades.json"
+ms = 3200
+
+[[step]]
+kind = "type"
+text = "Blades hold anything."
+per_key_ms = 60
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "annotate"
+text = "Tab: next module, a Clock from another plugin"
+ms = 3400
+
+[[step]]
+kind = "key"
+keys = "Tab"
+settle_ms = 1000
+
+[[step]]
+kind = "key"
+keys = "space"
+settle_ms = 1200
+
+[[step]]
+kind = "key"
+keys = "space"
+settle_ms = 1200
+
+[[step]]
+kind = "annotate"
+text = "Super+Shift+B again closes it"
+ms = 2200
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade"
+method = "focusRight"
+
+[[step]]
+kind = "hold"
+ms = 1800

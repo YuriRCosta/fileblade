@@ -1,0 +1,183 @@
+[demo]
+name             = "readme-01-files"
+output           = "WAYLAND-1"
+capture          = "screencopy"
+screen           = [1920, 1080]
+region           = { x = 0, y = 0, w = 1920, h = 1080 }
+leading_blank_ms = 900
+show_keys        = true
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 12
+gif_width        = 1280
+
+[cursor]
+size    = 26
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style       = "pixel"
+pixel_size  = 6
+radius      = 46
+duration_ms = 620
+color       = "#7aa2f7"
+
+[keys]
+fill = "#7aa2f7"
+text = "#0e0e14"
+size = 34
+
+[points]
+idle = [1100, 900]
+docs_chevron = [47, 248]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "annotate"
+text = "Super+B opens the file blade at the edge of your screen"
+ms = 4200
+
+[[step]]
+kind = "hold"
+ms = 1800
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 2400
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Move with j and k, expand with l, like vim"
+ms = 3600
+
+[[step]]
+kind = "key"
+keys = "j"
+settle_ms = 520
+
+[[step]]
+kind = "key"
+keys = "j"
+settle_ms = 520
+
+[[step]]
+kind = "key"
+keys = "j"
+settle_ms = 520
+
+[[step]]
+kind = "key"
+keys = "l"
+settle_ms = 1500
+
+[[step]]
+kind = "annotate"
+text = "Or click the chevron. Folders expand in place"
+ms = 3000
+
+[[step]]
+kind = "move"
+to = "docs_chevron"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+settle_ms = 2200
+
+[[step]]
+kind = "annotate"
+text = "Press / to search the tree as you type"
+ms = 3600
+
+[[step]]
+kind = "key"
+keys = "slash"
+settle_ms = 900
+
+[[step]]
+kind = "type"
+text = "deploy"
+per_key_ms = 150
+
+[[step]]
+kind = "hold"
+ms = 1800
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 1000
+
+[[step]]
+kind = "annotate"
+text = "Ctrl+F is a deep fuzzy search, fzf style"
+ms = 5000
+
+[[step]]
+kind = "key"
+keys = "ctrl+f"
+settle_ms = 1000
+
+[[step]]
+kind = "type"
+text = "md"
+per_key_ms = 170
+
+[[step]]
+kind = "hold"
+ms = 3600
+
+[[step]]
+kind = "key"
+keys = "Escape"
+settle_ms = 1000
+
+[[step]]
+kind = "annotate"
+text = "z jumps to any folder you have been to, zoxide style"
+ms = 4600
+
+[[step]]
+kind = "key"
+keys = "z"
+settle_ms = 700
+
+[[step]]
+kind = "type"
+text = "not"
+per_key_ms = 170
+
+[[step]]
+kind = "hold"
+ms = 1400
+
+[[step]]
+kind = "key"
+keys = "Return"
+settle_ms = 2000
+
+[[step]]
+kind = "annotate"
+text = "Keyboard or mouse, whichever you reach for first"
+ms = 2800
+
+[[step]]
+kind = "hold"
+ms = 2800

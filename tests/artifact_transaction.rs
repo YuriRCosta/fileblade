@@ -1,0 +1,237 @@
+use serde_json::{Value, json};
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::process::{Command, Stdio};
+
+struct Fixture {
+    root: tempfile::TempDir,
+}
+impl Fixture {
+    fn new() -> Self {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("bin")).unwrap();
+        fs::write(root.path().join("manifest.json"), json!({"id":"test.recovery", "extensions":{"data-goblin.fileblade/helper":[{
+            "id":"inventory", "entry":"bin/helper", "read":["prepare-remove"], "write":["remove-prepared","restore"], "timeoutMs":500
+        }]}}).to_string()).unwrap();
+        let script = root.path().join("bin/helper");
+        fs::write(&script, r##"#!/usr/bin/python3
+import json, os, sys, time
+from pathlib import Path
+root = Path.cwd()
+source = root / 'source'
+mode = (root / 'mode').read_text() if (root / 'mode').exists() else ''
+command = sys.argv[1]
+if command == 'prepare-remove':
+    payload = {'body': source.read_text(), 'source':str(source)}
+    print(json.dumps({'ok':True,'schemaVersion':1,'payload':payload}))
+elif command == 'remove-prepared':
+    payload = json.load(sys.stdin)
+    manifests = list((Path(os.environ['XDG_DATA_HOME'])/'fileblade/bin/hooks').glob('*/manifest.json'))
+    assert len(manifests) == 1
+    saved = json.loads(manifests[0].read_text())
+    assert saved['payload'] == payload and saved['restoreHelper']['provider'] == 'test.recovery'
+    assert manifests[0].stat().st_mode & 0o777 == 0o600
+    assert manifests[0].parent.stat().st_mode & 0o777 == 0o700
+    if mode == 'before': os._exit(8)
+    source.unlink()
+    if mode == 'after': os._exit(9)
+    if mode == 'sleep':
+        (root/'started').touch()
+        time.sleep(10)
+    print('{"ok":true,"schemaVersion":1}')
+else:
+    payload = json.load(sys.stdin)
+    if source.exists() and source.read_text() != payload['body']:
+        print('{"ok":false,"schemaVersion":1,"message":"source changed"}')
+        sys.exit(1)
+    source.write_text(payload['body'])
+    if mode == 'restore-after': os._exit(10)
+    print('{"ok":true,"schemaVersion":1}')
+"##).unwrap();
+        fs::set_permissions(script, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(root.path().join("source"), "private fixture payload").unwrap();
+        Self { root }
+    }
+    fn route(&self) -> String {
+        json!({"provider":"test.recovery", "directory":self.root.path(), "helper":"inventory"})
+            .to_string()
+    }
+    fn args(&self, item: Value) -> Vec<String> {
+        vec![
+            "bin-remove".into(),
+            "--module".into(),
+            "hooks".into(),
+            "--item".into(),
+            item.to_string(),
+            "--helper-route".into(),
+            self.route(),
+        ]
+    }
+    fn command(&self) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+        command
+            .env("XDG_DATA_HOME", self.root.path().join("data"))
+            .env("XDG_STATE_HOME", self.root.path().join("state"));
+        command
+    }
+    fn run(&self, args: &[String]) -> Value {
+        let output = self.command().arg("_backend").args(args).output().unwrap();
+        serde_json::from_slice(
+            output
+                .stdout
+                .split(|byte| *byte == b'\n')
+                .rfind(|line| !line.is_empty())
+                .unwrap_or_default(),
+        )
+        .unwrap_or_else(|_| panic!("{}", String::from_utf8_lossy(&output.stderr)))
+    }
+    fn restore(&self, id: &str) -> Value {
+        self.run(&[
+            "bin-restore".into(),
+            "--module".into(),
+            "hooks".into(),
+            "--id".into(),
+            id.into(),
+        ])
+    }
+    fn entries(&self) -> Vec<Value> {
+        self.run(&["bin-list".into(), "--module".into(), "hooks".into()])["items"]
+            .as_array()
+            .unwrap()
+            .clone()
+    }
+    fn mode(&self, mode: &str) {
+        fs::write(self.root.path().join("mode"), mode).unwrap();
+    }
+}
+
+#[test]
+fn complete_record_precedes_removal_and_restores_without_a_view() {
+    let f = Fixture::new();
+    let removed = f.run(&f.args(json!({"id":"selected","name":"Selected","position":2})));
+    assert_eq!(removed["ok"], true, "{removed}");
+    assert!(removed["payload"].is_null());
+    assert!(!f.root.path().join("source").exists());
+    let rows = f.run(&["trash-list".into()]);
+    assert_eq!(rows["entries"][0]["requires_module_restore"], false);
+    assert_eq!(f.restore(removed["entry"].as_str().unwrap())["ok"], true);
+    assert_eq!(
+        fs::read_to_string(f.root.path().join("source")).unwrap(),
+        "private fixture payload"
+    );
+    assert!(f.entries().is_empty());
+    let audit =
+        fs::read_to_string(f.root.path().join("state/omarchy/fileblade/audit.jsonl")).unwrap();
+    assert!(!audit.contains("private fixture payload"));
+}
+
+#[test]
+fn crashes_before_and_after_removal_keep_recovery_and_retry_is_idempotent() {
+    for mode in ["before", "after", "sleep"] {
+        let f = Fixture::new();
+        f.mode(mode);
+        let removed = f.run(&f.args(json!({"id":"selected"})));
+        assert_eq!(removed["ok"], false, "{mode}: {removed}");
+        assert_eq!(f.entries().len(), 1);
+        assert_eq!(f.root.path().join("source").exists(), mode == "before");
+        f.mode("restore-after");
+        let id = removed["entry"].as_str().unwrap();
+        assert_eq!(f.restore(id)["ok"], false);
+        assert_eq!(f.entries().len(), 1);
+        f.mode("");
+        assert_eq!(f.restore(id)["ok"], true);
+        assert!(f.entries().is_empty());
+    }
+}
+
+#[test]
+fn wrapper_and_utf8_escape_bounds_are_checked_before_removal() {
+    for body in ["x".repeat(65_300), "\"".repeat(33_000), "🦀".repeat(17_000)] {
+        let f = Fixture::new();
+        fs::write(f.root.path().join("source"), &body).unwrap();
+        let removed = f.run(&f.args(json!({"id":"selected", "detail":"metadata".repeat(40)})));
+        assert_eq!(removed["ok"], false, "{removed}");
+        assert_eq!(
+            fs::read_to_string(f.root.path().join("source")).unwrap(),
+            body
+        );
+        assert!(f.entries().is_empty());
+    }
+}
+
+#[test]
+fn restore_conflicts_or_unavailable_providers_keep_records() {
+    let f = Fixture::new();
+    let removed = f.run(&f.args(json!({"id":"selected"})));
+    let id = removed["entry"].as_str().unwrap();
+    fs::write(f.root.path().join("source"), "new contents").unwrap();
+    assert_eq!(f.restore(id)["ok"], false);
+    fs::remove_file(f.root.path().join("source")).unwrap();
+    fs::rename(
+        f.root.path().join("manifest.json"),
+        f.root.path().join("disabled-manifest.json"),
+    )
+    .unwrap();
+    assert_eq!(f.restore(id)["ok"], false);
+    assert_eq!(f.entries().len(), 1);
+}
+
+#[test]
+fn a_live_transaction_cannot_be_purged_or_pruned_and_cancellation_keeps_recovery() {
+    let f = Fixture::new();
+    f.mode("sleep");
+    let mut server = f
+        .command()
+        .args(["serve", "--no-recover"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = server.stdin.take().unwrap();
+    let mut output = BufReader::new(server.stdout.take().unwrap());
+    writeln!(input, "{}", json!({"v":1,"type":"hello"})).unwrap();
+    let mut hello = String::new();
+    output.read_line(&mut hello).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&hello).unwrap()["type"],
+        "hello"
+    );
+    let args = f.args(json!({"id":"selected"}));
+    writeln!(input, "{}", json!({"v":1,"type":"request","id":"remove","generation":1,"command":args[0],"arguments":args[1..]})).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while !f.root.path().join("started").exists() {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let entries = f.entries();
+    let id = entries[0]["id"].as_str().unwrap();
+    for args in [
+        vec!["bin-purge", "--module", "hooks", "--id", id],
+        vec!["trash-empty"],
+        vec!["trash-prune", "--days", "1"],
+    ] {
+        let result = f.run(&args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>());
+        assert_eq!(result["ok"], false, "{result}");
+    }
+    writeln!(
+        input,
+        "{}",
+        json!({"v":1,"type":"cancel","id":"remove","generation":1})
+    )
+    .unwrap();
+    let mut line = String::new();
+    loop {
+        line.clear();
+        assert_ne!(output.read_line(&mut line).unwrap(), 0);
+        let frame: Value = serde_json::from_str(&line).unwrap();
+        if frame["type"] == "response" {
+            break;
+        }
+    }
+    drop(input);
+    server.wait().unwrap();
+    assert_eq!(f.entries().len(), 1);
+    f.mode("");
+    assert_eq!(f.restore(id)["ok"], true);
+}

@@ -1,0 +1,171 @@
+[demo]
+name             = "readme-02-properties"
+output           = "WAYLAND-1"
+capture          = "screencopy"
+screen           = [1920, 1080]
+region           = { x = 0, y = 0, w = 1920, h = 1080 }
+leading_blank_ms = 900
+show_keys        = true
+fps              = 30
+settle_ms        = 1200
+gif_fps          = 10
+gif_width        = 1280
+
+[cursor]
+size    = 26
+fill    = "#c0caf5"
+outline = "#0e0e14"
+
+[cursor.ripple]
+style       = "pixel"
+pixel_size  = 6
+radius      = 46
+duration_ms = 620
+color       = "#7aa2f7"
+
+[keys]
+fill = "#7aa2f7"
+text = "#0e0e14"
+size = 34
+
+[points]
+idle = [1100, 900]
+readme_row = [115, 388]
+src_row = [89, 283]
+assets_chevron = [47, 213]
+hero_row = [120, 248]
+
+[[step]]
+kind = "move"
+to = "idle"
+ms = 1
+
+[[step]]
+kind = "ipc"
+target = "data-goblin.fileblade.control"
+method = "focusLeft"
+
+[[step]]
+kind = "hold"
+ms = 1800
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "The properties pane follows whatever you select"
+ms = 3200
+
+[[step]]
+kind = "hold"
+ms = 1000
+
+[[step]]
+kind = "move"
+to = "readme_row"
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "click"
+settle_ms = 1200
+
+[[step]]
+kind = "zoom"
+to = [0, 600, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "A markdown file: its preview, size and git status"
+ms = 3600
+
+[[step]]
+kind = "hold"
+ms = 3600
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 720, 405]
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "move"
+to = "src_row"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1000
+
+[[step]]
+kind = "zoom"
+to = [0, 600, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "A folder: repo, branch, what changed"
+ms = 3400
+
+[[step]]
+kind = "hold"
+ms = 3400
+
+[[step]]
+kind = "zoom"
+to = [0, 0, 720, 405]
+ease = "ease_in_out"
+ms = 800
+
+[[step]]
+kind = "move"
+to = "assets_chevron"
+ease = "ease_in_out"
+ms = 700
+
+[[step]]
+kind = "click"
+settle_ms = 1000
+
+[[step]]
+kind = "move"
+to = "hero_row"
+ease = "ease_in_out"
+ms = 600
+
+[[step]]
+kind = "click"
+settle_ms = 1000
+
+[[step]]
+kind = "zoom"
+to = [0, 640, 720, 405]
+ease = "ease_in_out"
+ms = 900
+
+[[step]]
+kind = "annotate"
+text = "Supported image previews appear as soon as you select them"
+ms = 4200
+
+[[step]]
+kind = "hold"
+ms = 2800
+
+[[step]]
+kind = "annotate"
+text = "Other blades and your agents can read that selection too"
+ms = 3200
+
+[[step]]
+kind = "hold"
+ms = 3200
