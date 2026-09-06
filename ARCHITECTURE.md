@@ -172,7 +172,8 @@ Layout is one file, `~/.config/omarchy/fileblade/blades.json`:
 
 ```yaml
 version: 1
-monitorMode: all | primary
+monitorMode: active | all | locked
+monitorLock: ""  # named output when locked
 animations: true
 blades:
   left:
@@ -195,9 +196,19 @@ array, so a save never tears down and reloads every module.
 
 Docked blades are layer surfaces with an exclusive zone, which is why your
 tiled windows shift over. An undocked blade (Super+T while it has focus) is a
-plain Hyprland window you can tile and move like anything else.
+plain Hyprland window you can tile and move like anything else. Its screen is
+chosen once when entering window mode from the edge's invocation or lock
+target. Later compositor movement is retained, and focus reports use the
+native window's actual screen. Removing an output cancels its transient
+menus, wheels, drags and keyboard ownership; the saved lock is retained.
 
 ## Focus and keybindings
+
+Backend hover and drop hit testing resolve the logical point to its output
+and that output's shown special or active workspace. Explicit native-window
+focus checks the window's own output workspace. Direction routing receives
+each edge's monitor name and rejects blades anchored elsewhere, including on
+empty workspaces. An empty home name represents mirrored All mode.
 
 Pane-navigation bindings live in the user-owned
 `$XDG_CONFIG_HOME/omarchy/fileblade/keybindings.json` (defaulting to
@@ -457,7 +468,7 @@ folderColorScope:           icon       what a folder color paints: icon, name, o
 trashRetentionDays:         7          days before Trash entries are pruned; 0 keeps them forever
 gitStatusPollIntervalMs:     5000       Git fallback base in ms; 6x while inotify is healthy, 0 disables it
 dropModifier:               space      drop-wheel hold key: space, alt, ctrl, shift, or meta
-monitorMode:                all        all screens, or primary (the first Quickshell screen)
+monitorMode:                active     invocation monitor; all mirrors, locked uses the saved monitorLock
 animateBlades:              true       slide blades open and closed
 checkUpdates:               true       the six-hourly git fetch described under Checkout update checks
 blades:                     omitted    optional full first-run left/right layout; supersedes the legacy layout keys above
