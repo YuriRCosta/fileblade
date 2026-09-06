@@ -385,7 +385,9 @@ keeps the bars visible. The choice survives a shell restart.
 Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 
 113. **E-14-01** If I select items and press `d` or `Delete`, FileBlade asks me
-     to confirm before moving them to Trash.
+     to confirm before moving them to Trash. With blades on several monitors
+     the confirmation appears on each of them, answering it on any one monitor
+     closes it on all the others, and confirming once moves the items once.
 114. **E-14-02** If I cancel the trash confirmation, the selected items remain
      in their original locations.
 115. **E-14-03** If I confirm the trash action, the items disappear from their

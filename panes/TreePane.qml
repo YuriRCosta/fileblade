@@ -978,15 +978,12 @@ FocusScope {
     actionKeys: root.actionKeys
     anchors.fill: parent
     z: 95
-    property var pendingPaths: []
     onChosen: function(key) {
-      var paths = trashDialog.pendingPaths
-      trashDialog.pendingPaths = []
-      if (key === "trash") root.controller.trashSelection(paths)
+      root.controller.resolveTrashConfirmation(key === "trash")
       root.focusTree()
     }
     onCanceled: {
-      trashDialog.pendingPaths = []
+      root.controller.resolveTrashConfirmation(false)
       root.focusTree()
     }
   }
@@ -996,8 +993,10 @@ FocusScope {
     ignoreUnknownSignals: true
     function onTrashConfirmationRequested(paths) {
       if (!root.visible || !root.context || !root.context.bladeOpen) return
-      trashDialog.pendingPaths = paths
       trashDialog.open(root.trashPrompt(paths), [{ key: "cancel", label: "Cancel" }, { key: "trash", label: "Move to Trash", danger: true }])
+    }
+    function onPendingTrashPathsChanged() {
+      if (trashDialog.opened && root.controller.pendingTrashPaths.length === 0) trashDialog.close()
     }
   }
 }

@@ -657,6 +657,19 @@ fn trash_asks_first_with_cancel_selected_unless_the_setting_is_off() {
     assert!(operations.contains("function requestTrash(paths)"));
     assert!(operations.contains("if (!service.confirmTrash) return trashSelection(targets)"));
     assert!(tree.contains("trash: function() { controller.requestTrash() }"));
+    let service = text(&root.join("Service.qml"));
+    assert!(service.contains("property var pendingTrashPaths: []"));
+    assert!(service.contains("function resolveTrashConfirmation(confirm)"));
+    assert!(operations.contains("service.pendingTrashPaths = targets.slice()"));
+    assert!(tree.contains("root.controller.resolveTrashConfirmation(key === \"trash\")"));
+    assert!(tree.contains("root.controller.resolveTrashConfirmation(false)"));
+    assert!(tree.contains(
+        "if (trashDialog.opened && root.controller.pendingTrashPaths.length === 0) trashDialog.close()"
+    ));
+    assert!(
+        !tree.contains("property var pendingPaths: []"),
+        "the trash confirmation must not keep per-screen pending paths"
+    );
     assert!(!tree.contains("openMenuForCurrent(view, \"trash\")"));
     assert!(tree.contains("[{ key: \"cancel\", label: \"Cancel\" }, { key: \"trash\", label: \"Move to Trash\", danger: true }]"));
     assert!(properties.contains("trash: function() { controller.requestTrash() }"));
