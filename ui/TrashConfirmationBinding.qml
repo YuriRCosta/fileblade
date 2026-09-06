@@ -12,6 +12,14 @@ QtObject {
 
   readonly property bool current: requestSerial === Number(controller ? controller.trashConfirmationSerial : -2)
 
+  function retire() {
+    if (dialog.opened && current && controller.pendingTrashPaths.length > 0) controller.resolveTrashConfirmation(false)
+    else if (dialog.opened) dialog.close()
+  }
+
+  onPaneVisibleChanged: if (!paneVisible) retire()
+  Component.onDestruction: retire()
+
   function resolve(key) {
     if (!current) {
       if (dialog.opened) dialog.close()
