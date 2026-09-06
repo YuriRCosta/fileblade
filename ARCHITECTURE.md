@@ -156,7 +156,20 @@ The Rust-side default-open helper follows the same rule for drop-wheel opens.
 ![Blade layout](assets/docs/blade-layout.svg)
 
 ```yaml
-blade:   one screen edge, left or right. Open or closed, docked or undocked, focused or not
+blade:   one screen edge, left or right. Open or closed, docked or undocked, focused or not.
+         Rendered by one BladeSurface per screen; `monitorMode` decides which surfaces are
+         eligible. `active` (default): each edge shows only on the monitor Hyprland had
+         focused when that blade was opened, and stays there until closed; a shortcut
+         pressed while working elsewhere closes it, the next press opens it there.
+         `locked` + `monitorLock`: only that named output, and shortcuts always act there.
+         `all`: mirrored on every output (legacy `primary` becomes a lock to the first).
+         The layout itself is one shared document; only the per-edge invocation screen is
+         runtime state, adopted from the first focused monitor after a restart.
+         `lib/MonitorMode.js` is the single resolver; `BladeLayout.preferredScreen(edge)`
+         is where every unscreened command lands and is null while nothing is eligible.
+         Explicit ineligible targets are rejected, never redirected. A mode or lock change
+         that makes the owning screen ineligible drops focus ownership without touching
+         application focus and cancels an unanswered trash confirmation
 slot:    a vertical section of a blade holding one module; drag the divider to resize, collapse it, reorder it
 tab:     alternate module instances inside one slot, each with its own persisted state
 module:  the QML a slot loads; found by the registry, described in EXTENSIONS.md
@@ -340,6 +353,7 @@ export appears that neither `src/public_cli/` calls nor this list names, so
 adding a verb means deciding its status here.
 
 ```yaml
+setMonitorMode: blade settings Monitors choice (active | all | locked <monitor>); VM section 34
 windowClose:    host bind (Super+W) through bindings.lua
 windowResize:   host bind (Super+Minus, Super+Equals)
 windowSwap:     host bind (Super+Shift+arrows)

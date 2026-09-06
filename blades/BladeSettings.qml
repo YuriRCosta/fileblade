@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/MonitorMode.js" as MonitorMode
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
@@ -698,7 +699,8 @@ Item {
         Column {
           id: general
           readonly property bool animateShown: root.matches("general animate blades motion")
-          readonly property bool shown: animateShown
+          readonly property bool monitorsShown: root.matches("general monitors screens display active primary all")
+          readonly property bool shown: animateShown || monitorsShown
           width: parent.width
           spacing: Style.space(5)
           visible: shown
@@ -714,6 +716,16 @@ Item {
             label: "Animate blades"
             checked: root.host.animateBlades
             onToggled: root.host.setAnimateBlades(!root.host.animateBlades)
+          }
+
+          PluginUi.ChoiceRow {
+            width: parent.width
+            visible: general.monitorsShown
+            glyph: "󰍹"
+            label: "Monitors"
+            options: MonitorMode.choices(root.host.screenNames)
+            value: MonitorMode.choiceKey(root.host.monitorMode, root.host.monitorLock)
+            onChosen: function(key) { var choice = MonitorMode.parseChoice(key); root.host.setMonitorMode(choice.mode, choice.lock) }
           }
         }
 

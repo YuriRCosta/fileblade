@@ -567,8 +567,16 @@ Automation for this section is pending.
      normal window-swap behavior remains unchanged.
 178. **E-21-09** If I turn blade animations off, blades appear and disappear
      without sliding; turning animations on restores the slide.
-179. **E-21-10** On a multi-monitor setup, blades appear only on the screens I
-     configured and interact with windows on the same screen.
+179. **E-21-10** On a multi-monitor setup, blades appear only where the
+     Monitors setting allows and interact with windows on the same screen. The
+     Monitors choice in Settings offers Active (the default), All, and one
+     "Lock to" entry per detected monitor. With Active, a blade opens on the
+     monitor I am working on and stays there; it does not follow my focus. If
+     I press its shortcut while working on another monitor, the open blade
+     closes, and the next press opens it on the monitor I am on. With a lock,
+     blades only ever appear on that monitor and the shortcuts act there
+     wherever I am. My layout, notes and selection are the same on every
+     monitor. See section 34 for the two-monitor checks.
 
 ## 22. Adding and managing module tabs
 

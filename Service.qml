@@ -1043,7 +1043,9 @@ Item {
 
   function openInEditor(path) { return enqueueLaunch(path, "editor", "") }
 
-  function defaultOpenScreen(targetScreen) { return targetScreen || (actionMenuOpen && actionMenuScreen ? actionMenuScreen : (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)) }
+  function preferredScreen() { return bladeHost.preferredScreen() }
+  function referenceScreen(candidate) { return bladeHost.referenceScreen(candidate) }
+  function defaultOpenScreen(targetScreen) { return targetScreen || (actionMenuOpen && actionMenuScreen ? actionMenuScreen : bladeHost.referenceScreen(null)) }
 
   function openDefault(path, targetScreen, directoryHint) {
     return enqueueLaunch(path, "default", "", defaultOpenScreen(targetScreen), directoryHint)

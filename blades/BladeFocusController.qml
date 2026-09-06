@@ -68,6 +68,14 @@ Item {
     externalFocusHandoff = false
     externalFocusHandoffTimer.stop()
     var target = normalizeEdge(edge)
+    var screen = targetScreen || null
+    if (!isWindowMode(target) && screen && !isOpen(target) && !host.panelActiveFor(screen, target)) {
+      var invocation = host.preferredScreen(target)
+      if (!invocation || invocation !== screen) return false
+    }
+    if (!isWindowMode(target) && screen && isOpen(target) && !host.panelActiveFor(screen, target)) return false
+    if (!screen) screen = (focusedScreen && host.panelActiveFor(focusedScreen, target)) ? focusedScreen : host.preferredScreen(target)
+    if (!isWindowMode(target) && !screen) return false
     if (!isOpen(target)) {
       if (openIfClosed !== true) return false
       setOpen(target, true, true)
@@ -83,8 +91,7 @@ Item {
     restoreGeneration++
     restoreRequestId = ""
     if (focusedEdge === "") rememberWorkspaceFocus()
-    focusedScreen = targetScreen || focusedScreen || host.screenNamed("")
-    if (!isWindowMode(target) && !host.panelActiveFor(focusedScreen)) focusedScreen = host.screenNamed("")
+    focusedScreen = screen
     focusRevision++
     cancelHoverExit()
     focusedEdge = target
@@ -305,6 +312,42 @@ Item {
     }
     if (name === "closewindow" || name === "workspace" || name === "workspacev2" || name === "focusedmon")
       scheduleEmptyWorkspaceFocus()
+  }
+
+  Connections {
+    target: host
+    function onMonitorModeChanged() { controller.reconcileOwnership() }
+    function onMonitorLockChanged() { controller.reconcileOwnership() }
+    function onFocusedMonitorNameChanged() { controller.reconcileOwnership() }
+  }
+
+  function reconcileOwnership() {
+    if (focusedEdge === "" || isWindowMode(focusedEdge) || host.panelActiveFor(focusedScreen, focusedEdge)) return
+    if (service && Array.isArray(service.pendingTrashPaths) && service.pendingTrashPaths.length > 0)
+      service.resolveTrashConfirmation(false)
+    dropOwnership()
+  }
+
+  function dropOwnership() {
+    var target = focusedEdge
+    cancelHoverExit()
+    if (hoverTargetRequestId && service) service.cancelBackendRequest(hoverTargetRequestId, hoverTargetGeneration)
+    hoverTargetGeneration++
+    hoverTargetRequestId = ""
+    emptyWorkspaceFocusTimer.stop()
+    if (emptyFocusRequestId && service) service.cancelBackendRequest(emptyFocusRequestId, emptyFocusGeneration)
+    emptyFocusGeneration++
+    emptyFocusRequestId = ""
+    if (directionRequestId && service) service.cancelBackendRequest(directionRequestId, directionGeneration)
+    directionGeneration++
+    directionRequestId = ""
+    if (restoreRequestId && service) service.cancelBackendRequest(restoreRequestId, restoreGeneration)
+    restoreGeneration++
+    restoreRequestId = ""
+    focusRevision++
+    host.bladeFocusReleased(target)
+    focusedEdge = ""
+    focusedScreen = null
   }
 
   Timer {
