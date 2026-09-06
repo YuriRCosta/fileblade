@@ -2008,3 +2008,75 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
         ipc.contains("function runAction(key: string, pathsJson: string, yes: string): string")
     );
 }
+
+#[test]
+fn qml_objects_do_not_bind_the_same_signal_twice() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut offenders = Vec::new();
+    for path in files(root, &["qml"]) {
+        let source = text(&path);
+        let mut scopes: Vec<Vec<String>> = vec![Vec::new()];
+        let mut in_string: Option<char> = None;
+        let mut in_block_comment = false;
+        for (line_number, line) in source.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if !in_block_comment && in_string.is_none() {
+                if let Some(rest) = trimmed.strip_prefix("on") {
+                    let name: String = rest
+                        .chars()
+                        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                        .collect();
+                    if name.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                        && rest[name.len()..].starts_with(':')
+                    {
+                        let handler = format!("on{name}");
+                        let scope = scopes.last_mut().unwrap();
+                        if scope.contains(&handler) {
+                            offenders.push(format!(
+                                "{}:{}: {handler} bound twice in one object",
+                                path.display(),
+                                line_number + 1
+                            ));
+                        } else {
+                            scope.push(handler);
+                        }
+                    }
+                }
+            }
+            let mut chars = line.chars().peekable();
+            while let Some(c) = chars.next() {
+                if in_block_comment {
+                    if c == '*' && chars.peek() == Some(&'/') {
+                        chars.next();
+                        in_block_comment = false;
+                    }
+                    continue;
+                }
+                if let Some(quote) = in_string {
+                    if c == '\\' {
+                        chars.next();
+                    } else if c == quote {
+                        in_string = None;
+                    }
+                    continue;
+                }
+                match c {
+                    '/' if chars.peek() == Some(&'/') => break,
+                    '/' if chars.peek() == Some(&'*') => {
+                        chars.next();
+                        in_block_comment = true;
+                    }
+                    '"' | '\'' | '`' => in_string = Some(c),
+                    '{' => scopes.push(Vec::new()),
+                    '}' => {
+                        if scopes.len() > 1 {
+                            scopes.pop();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert!(offenders.is_empty(), "{}", offenders.join("\n"));
+}
