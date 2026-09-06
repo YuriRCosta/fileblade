@@ -635,6 +635,7 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
         ipc.contains("if (String(monitor || \"\") !== \"\" && !screen) return \"unknown-monitor\"")
     );
     assert!(ipc.contains("if (!target) return \"off-screen\""));
+    assert!(ipc.contains("pendingTrashCount: Array.isArray(service.pendingTrashPaths) ? service.pendingTrashPaths.length : 0,"));
     let settings_sheet = text(&root.join("blades/BladeSettings.qml"));
     assert!(settings_sheet.contains("label: \"Monitors\""));
     assert!(settings_sheet.contains("PluginUi.DropdownRow {"));
@@ -771,6 +772,8 @@ fn trash_asks_first_with_cancel_selected_unless_the_setting_is_off() {
             .contains("binding.requestSerial = Number(binding.controller.trashConfirmationSerial)")
     );
     assert!(binding.contains("if (!current) {"));
+    assert!(binding.contains("onPaneVisibleChanged: if (!paneVisible) retire()"));
+    assert!(binding.contains("Component.onDestruction: retire()"));
     assert!(tree.contains("PluginUi.TrashConfirmationBinding {"));
     assert!(tree.contains("trashConfirmation.resolve(key)"));
     assert!(tree.contains("trashConfirmation.resolve(\"cancel\")"));
@@ -2054,26 +2057,27 @@ fn qml_objects_do_not_bind_the_same_signal_twice() {
         let mut in_block_comment = false;
         for (line_number, line) in source.lines().enumerate() {
             let trimmed = line.trim_start();
-            if !in_block_comment && in_string.is_none() {
-                if let Some(rest) = trimmed.strip_prefix("on") {
-                    let name: String = rest
-                        .chars()
-                        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-                        .collect();
-                    if name.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-                        && rest[name.len()..].starts_with(':')
-                    {
-                        let handler = format!("on{name}");
-                        let scope = scopes.last_mut().unwrap();
-                        if scope.contains(&handler) {
-                            offenders.push(format!(
-                                "{}:{}: {handler} bound twice in one object",
-                                path.display(),
-                                line_number + 1
-                            ));
-                        } else {
-                            scope.push(handler);
-                        }
+            if !in_block_comment
+                && in_string.is_none()
+                && let Some(rest) = trimmed.strip_prefix("on")
+            {
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                if name.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && rest[name.len()..].starts_with(':')
+                {
+                    let handler = format!("on{name}");
+                    let scope = scopes.last_mut().unwrap();
+                    if scope.contains(&handler) {
+                        offenders.push(format!(
+                            "{}:{}: {handler} bound twice in one object",
+                            path.display(),
+                            line_number + 1
+                        ));
+                    } else {
+                        scope.push(handler);
                     }
                 }
             }
@@ -2102,10 +2106,8 @@ fn qml_objects_do_not_bind_the_same_signal_twice() {
                     }
                     '"' | '\'' | '`' => in_string = Some(c),
                     '{' => scopes.push(Vec::new()),
-                    '}' => {
-                        if scopes.len() > 1 {
-                            scopes.pop();
-                        }
+                    '}' if scopes.len() > 1 => {
+                        scopes.pop();
                     }
                     _ => {}
                 }
