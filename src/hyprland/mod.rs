@@ -45,6 +45,19 @@ pub struct FocusDirectionOptions {
     pub from_blade: String,
     pub blade_titles: Vec<String>,
     pub empty_only: bool,
+    pub left_monitor: String,
+    pub right_monitor: String,
+}
+
+impl FocusDirectionOptions {
+    pub fn blade_reachable(&self, edge: &str, monitor: &str) -> bool {
+        let home = if edge == "right" {
+            &self.right_monitor
+        } else {
+            &self.left_monitor
+        };
+        home.is_empty() || home == monitor
+    }
 }
 
 #[derive(Clone, Debug)]

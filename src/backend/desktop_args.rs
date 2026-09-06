@@ -70,6 +70,10 @@ pub struct FocusDirectionArgs {
     pub blade_title: Vec<String>,
     #[arg(long)]
     pub empty_only: bool,
+    #[arg(long, default_value = "")]
+    pub left_monitor: String,
+    #[arg(long, default_value = "")]
+    pub right_monitor: String,
 }
 
 #[derive(Clone, Debug, Args)]

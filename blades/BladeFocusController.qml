@@ -289,6 +289,8 @@ Item {
       "--left", bladeState("left"),
       "--right", bladeState("right"),
       "--empty-only",
+      "--left-monitor", host.bladeScreenName("left"),
+      "--right-monitor", host.bladeScreenName("right"),
       "--blade-title", windowTitle("left"),
       "--blade-title", windowTitle("right")
     ]
@@ -516,6 +518,8 @@ Item {
       "--left", bladeState("left"),
       "--right", bladeState("right"),
       "--from-blade", fromBlade,
+      "--left-monitor", host.bladeScreenName("left"),
+      "--right-monitor", host.bladeScreenName("right"),
       "--blade-title", windowTitle("left"),
       "--blade-title", windowTitle("right")
     ]

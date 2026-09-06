@@ -65,3 +65,23 @@ fn a_client_is_judged_against_its_own_monitor() {
         None
     );
 }
+
+#[test]
+fn a_blade_is_only_routed_to_on_its_own_monitor() {
+    let options = fileblade::hyprland::FocusDirectionOptions {
+        direction: "l".into(),
+        left_state: "open".into(),
+        right_state: "open".into(),
+        from_blade: String::new(),
+        blade_titles: Vec::new(),
+        empty_only: false,
+        left_monitor: "DP-1".into(),
+        right_monitor: String::new(),
+    };
+    assert!(options.blade_reachable("left", "DP-1"));
+    assert!(!options.blade_reachable("left", "HDMI-A-1"));
+    assert!(
+        options.blade_reachable("right", "HDMI-A-1"),
+        "an all-mode blade has no home monitor"
+    );
+}
