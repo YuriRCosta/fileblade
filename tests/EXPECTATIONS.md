@@ -765,6 +765,17 @@ two selected files. Over a plain terminal or empty desktop, Hunk opens directly
 in a new terminal without offering multiplexer destinations.
 Covered by `tests/vm/expectations/26-hunk-review.sh`.
 
+**E-26-12** If the terminal I drop on shares one process with other windows
+(ghostty, kitty in single-instance mode, foot in server mode, wezterm), the
+wheel only offers pane, tab, space and paste placements when it can tell
+which window I dropped on: for Herdr that is the window whose title names
+exactly one workspace across my Herdr sessions, checked again when I pick a
+placement. Otherwise the target reads "shared window", those placements are
+missing, the same goes for "This nvim", and picking one anyway is refused
+with the reason; New terminal and Review with hunk in a new window still
+work. tmux gives no way to tell such windows apart, so it always counts as
+shared there.
+
 ## 27. Updates and recovery
 
 `tests/vm/expectations/27-updates-recovery.sh`

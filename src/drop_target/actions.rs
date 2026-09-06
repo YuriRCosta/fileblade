@@ -46,8 +46,30 @@ pub(super) fn terminal_actions(target: &Value, facts: &Value) -> Vec<Value> {
     }
 }
 
+pub(super) fn ambiguous_reason(target: &Value) -> Option<String> {
+    let terminal = target
+        .get("terminal")
+        .filter(|value| value.get("ambiguous").and_then(Value::as_bool) == Some(true))
+        .or_else(|| {
+            target
+                .get("editor")
+                .filter(|value| value.get("ambiguous").and_then(Value::as_bool) == Some(true))
+        })?;
+    Some(
+        terminal
+            .get("reason")
+            .and_then(Value::as_str)
+            .filter(|reason| !reason.is_empty())
+            .unwrap_or("cannot identify this window's pane")
+            .to_string(),
+    )
+}
+
 pub(super) fn resolved_multiplexer(target: &Value) -> Option<&str> {
     let terminal = target.get("terminal").unwrap_or(&Value::Null);
+    if terminal.get("ambiguous").and_then(Value::as_bool) == Some(true) {
+        return None;
+    }
     match terminal
         .get("multiplexer")
         .and_then(Value::as_str)
@@ -410,6 +432,29 @@ mod tests {
         assert_eq!(
             rows[0]["description"],
             "Open in nvim inside a new herdr vertical split, horizontal split, tab, or space"
+        );
+    }
+
+    #[test]
+    fn a_shared_window_without_a_unique_pane_offers_no_mux_or_hunk_placements() {
+        let target = json!({"kind": "terminal", "terminal": {"multiplexer": "herdr", "ambiguous": true,
+            "reason": "cannot identify this window's pane: its title names no single herdr workspace"}});
+        let facts = json!({"files": ["/tmp/a.txt"], "review": true});
+        assert!(terminal_actions(&target, &facts).is_empty());
+        assert_eq!(resolved_multiplexer(&target), None);
+        let rows = actions_for(&target, &facts);
+        let review = rows.iter().find(|row| row["id"] == "review");
+        assert!(
+            review.is_none_or(|row| row["placements"].as_array().is_none_or(|p| p.is_empty())),
+            "hunk keeps only its new-window form: {rows:?}"
+        );
+        assert!(
+            rows.iter().any(|row| row["id"] == "terminal"),
+            "the new-terminal action stays"
+        );
+        assert_eq!(
+            ambiguous_reason(&target).as_deref(),
+            Some("cannot identify this window's pane: its title names no single herdr workspace")
         );
     }
 
