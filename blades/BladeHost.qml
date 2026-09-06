@@ -578,7 +578,7 @@ Item {
   function orderedSlots() { return focusController.orderedSlots() }
   function focusRelativeSlot(edge, slotIndex, delta, targetScreen) { return focusController.focusRelativeSlot(edge, slotIndex, delta, targetScreen) }
   function focusExpandedNeighbor(edge, index, targetScreen) { return focusController.focusExpandedNeighbor(edge, index, targetScreen) }
-  function reportFocus(edge, focused) { focusController.reportFocus(edge, focused) }
+  function reportFocus(edge, focused, screen) { focusController.reportFocus(edge, focused, screen) }
   function focusDirection(direction) { return focusController.focusDirection(direction) }
   function rememberWorkspaceFocus() { focusController.rememberWorkspaceFocus() }
   function restoreWorkspaceFocus() { return focusController.restoreWorkspaceFocus() }

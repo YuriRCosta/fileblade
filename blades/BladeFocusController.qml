@@ -202,12 +202,13 @@ Item {
     return false
   }
 
-  function reportFocus(edge, focused) {
+  function reportFocus(edge, focused, screen) {
     var target = normalizeEdge(edge)
     if (!isWindowMode(target)) return
     if (focused) {
       if (focusedEdge === "") rememberWorkspaceFocus()
       focusedEdge = target
+      if (screen) focusedScreen = screen
     } else if (focusedEdge === target) {
       focusedEdge = ""
     }
