@@ -737,7 +737,7 @@ Item {
   function cyclePriorityProperty() { return navigationController.cyclePriorityProperty() }
   function setSettingsOpen(value, edge) { navigationController.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return navigationController.toggleSettings(edge) }
-  function focusTree(targetScreen, later) { return later ? navigationController.focusAfterOpen() : navigationController.focusTree(targetScreen) }
+  function focusTree(targetScreen, later) { return later ? navigationController.focusAfterOpen(targetScreen) : navigationController.focusTree(targetScreen) }
   function focusSearch(targetScreen) { return navigationController.focusSearch(targetScreen) }
   function focusLocation(targetScreen) { return navigationController.focusLocation(targetScreen) }
   function focusProperties(targetScreen) { return navigationController.focusProperties(targetScreen) }

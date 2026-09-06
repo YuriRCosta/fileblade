@@ -13,6 +13,7 @@ Item {
   property string pendingPath: ""
   property string pendingMode: ""
   property var activeTargetScreen: null
+  property string activeMonitor: ""
   property var pendingTargetScreen: null
   property var activeResponse: null
   property int validationCount: 0
@@ -41,6 +42,7 @@ Item {
     activeMode = normalizedMode(mode)
     activeOrigin = service.normalizeRoot(service.rootPath)
     activeTargetScreen = targetScreen || null
+    activeMonitor = service.bladeHost.focusedMonitorName
     activeResponse = null
     path = target
     error = ""
@@ -210,6 +212,7 @@ Item {
       mode: normalizedMode(activeMode),
       origin: activeOrigin,
       screen: activeTargetScreen,
+      monitor: activeMonitor,
       response: activeResponse,
       nextPath: pendingPath,
       nextMode: pendingMode,
@@ -272,8 +275,9 @@ Item {
     } else {
       service.setRootPath(destination)
     }
-    if (request.mode === "direct") service.locationValidationFinished(request.screen, true, destination, "")
-    else if (request.screen) service.focusTree(request.screen)
+    var late = String(request.monitor || "") !== service.bladeHost.focusedMonitorName
+    if (request.mode === "direct") service.locationValidationFinished(late ? null : request.screen, true, destination, "")
+    else if (request.screen && !late) service.focusTree(request.screen)
   }
 
   function restartRecoveryNotice() { recoveryNoticeTimer.restart() }

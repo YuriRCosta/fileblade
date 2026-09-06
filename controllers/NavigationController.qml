@@ -157,7 +157,12 @@ Item {
   }
 
   property string focusMonitor: ""
-  function focusAfterOpen() { focusMonitor = service.bladeHost.focusedMonitorName; focusTimer.restart() }
+  property var focusTarget: null
+  function focusAfterOpen(targetScreen) {
+    focusTarget = targetScreen || null
+    focusMonitor = service.bladeHost.focusedMonitorName
+    focusTimer.restart()
+  }
   function yieldFocus() { focusTimer.stop() }
 
   Timer {
@@ -165,8 +170,9 @@ Item {
     interval: 120
     onTriggered: {
       if (!service.open || service.actionMenuOpen) return
-      if (controller.focusMonitor !== service.bladeHost.focusedMonitorName) return
-      var screen = service.referenceScreen(null)
+      if (controller.focusMonitor !== service.bladeHost.focusedMonitorName) { controller.focusTarget = null; return }
+      var screen = controller.focusTarget || service.preferredScreen()
+      controller.focusTarget = null
       if (screen) controller.focusTree(screen)
     }
   }
