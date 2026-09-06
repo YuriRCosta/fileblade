@@ -654,6 +654,12 @@ fn trash_asks_first_with_cancel_selected_unless_the_setting_is_off() {
     let menu = text(&root.join("panes/FileActionsMenu.qml"));
     let settings = text(&root.join("modules/files/FilesSettings.qml"));
     assert!(state.contains("property bool confirmTrash: true"));
+    let focus = text(&root.join("blades/BladeFocusController.qml"));
+    assert!(focus.contains("function toggleBladeFocus(edge, targetScreen)"));
+    assert!(
+        !focus.contains("return \"focused\""),
+        "toggleBladeFocus must close an open blade in one press instead of focusing it"
+    );
     assert!(operations.contains("function requestTrash(paths)"));
     assert!(operations.contains("if (!service.confirmTrash) return trashSelection(targets)"));
     assert!(tree.contains("trash: function() { controller.requestTrash() }"));

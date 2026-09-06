@@ -110,16 +110,12 @@ Item {
 
   function toggleBladeFocus(edge, targetScreen) {
     var target = normalizeEdge(edge)
-    if (!isOpen(target)) {
-      focusBlade(target, targetScreen, -1, "", true)
-      return "opened"
+    if (isOpen(target)) {
+      setOpen(target, false, true)
+      return "closed"
     }
-    if (focusedEdge !== target || (targetScreen && targetScreen !== focusedScreen)) {
-      focusBlade(target, targetScreen, -1, "", true)
-      return "focused"
-    }
-    setOpen(target, false, true)
-    return "closed"
+    focusBlade(target, targetScreen, -1, "", true)
+    return "opened"
   }
 
   function focusMatches(edge, screen, revision) {
