@@ -86,7 +86,7 @@ FocusScope {
     var index = Number(tabIndex)
     if (tabs.length <= 1 || !host.validIndex(index, tabs.length)) return false
     pendingCloseTab = index
-    pendingCloseTarget = TabIdentity.capture(tabs, index)
+    pendingCloseTarget = TabIdentity.capture(tabs, index, slotId)
     closeTabDialog.open("Close tab?\n" + host.tabTitle(edge, slotIndex, index),
                         [{ key: "cancel", label: "Cancel" }, { key: "close", label: "Close", danger: true }])
     return true
@@ -97,15 +97,18 @@ FocusScope {
     var target = pendingCloseTarget
     pendingCloseTab = -1
     pendingCloseTarget = null
-    if (tabs.length > 1 && TabIdentity.matches(tabs, target)) host.removeTab(edge, slotIndex, index)
+    if (tabs.length > 1 && TabIdentity.matches(tabs, slotId, target)) host.removeTab(edge, slotIndex, index)
   }
 
-  onTabsChanged: {
-    if (!closeTabDialog.opened || TabIdentity.matches(tabs, pendingCloseTarget)) return
+  function dropStaleCloseTab() {
+    if (!closeTabDialog.opened || TabIdentity.matches(tabs, slotId, pendingCloseTarget)) return
     pendingCloseTab = -1
     pendingCloseTarget = null
     closeTabDialog.close()
   }
+
+  onTabsChanged: dropStaleCloseTab()
+  onSlotIdChanged: dropStaleCloseTab()
 
   function moduleRows() {
     var revision = host.registry.revision
