@@ -121,8 +121,7 @@ Item {
       setOpen(target, false, true)
       return "closed"
     }
-    focusBlade(target, targetScreen, -1, "", true)
-    return "opened"
+    return focusBlade(target, targetScreen, -1, "", true) ? "opened" : "no-screen"
   }
 
   function focusMatches(edge, screen, revision) {
