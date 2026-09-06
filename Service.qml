@@ -148,6 +148,13 @@ Item {
 
   signal locationValidationFinished(var targetScreen, bool success, string path, string error)
   signal trashConfirmationRequested(var paths)
+  property var pendingTrashPaths: []
+  function resolveTrashConfirmation(confirm) {
+    var paths = Array.isArray(pendingTrashPaths) ? pendingTrashPaths.slice() : []
+    pendingTrashPaths = []
+    if (confirm && paths.length > 0) operationController.trashSelection(paths)
+    return paths.length
+  }
   signal treeRowsReplacing()
 
   property alias treeModel: treeController.model
