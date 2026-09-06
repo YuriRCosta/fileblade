@@ -11,3 +11,7 @@ This file was written by an agent.
 - Cancel close-tab confirmations when their slot or tabs change.
 - Keep delayed navigation focus on its original monitor.
 - Cancel pending trash requests when their confirming pane hides or unloads.
+- Cancel menus, wheels, drags, and focus when their monitor disconnects.
+- Resolve hover, drops, and explicit window focus across visible monitors.
+- Keep directional focus routing on each blade's assigned monitor.
+- Open undocked blades on their monitor, preserving ordinary window movement.

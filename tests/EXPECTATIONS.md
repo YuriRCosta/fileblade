@@ -933,3 +933,14 @@ startup targets also have deterministic QML coverage.
   moved to another monitor, it may finish loading data but must not steal
   keyboard focus. No blade chooses an arbitrary output before the focused
   monitor is known.
+
+- **E-34-13** A hover or drop over a visible window on another monitor
+  recognizes that window even while I work elsewhere. Explicitly focusing a
+  window on another monitor's visible workspace works too.
+- **E-34-14** Directional focus reaches a blade only on that blade's assigned
+  monitor, including when the current workspace has no windows.
+- **E-34-15** Undocking starts a native window on the blade's monitor. I can
+  then move it normally; changing focus or monitor settings does not move it
+  back to its creation monitor.
+- **E-34-16** Unplugging the source monitor during a held module or file drag
+  cancels it. The layout and files stay unchanged, and no paste is dispatched.
