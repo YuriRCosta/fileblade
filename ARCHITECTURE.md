@@ -247,7 +247,7 @@ local function blade(method, fallback)
   return call
 end
 
-o.bind("SUPER + B", "Focus or close the left blade", blade("toggleBladeFocus left"))
+o.bind("SUPER + B", "Open or close the left blade", blade("toggleBladeFocus left"))
 o.bind("SUPER + W", "Close window or blade", blade("windowClose", "hl.dsp.window.close()"))
 o.bind("SUPER + LEFT", "Focus left (blade aware)", blade("focusDirection l", 'hl.dsp.focus({ direction = "l" })'))
 ```

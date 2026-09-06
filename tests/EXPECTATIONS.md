@@ -48,7 +48,8 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 3. **E-01-03** If I press `Super+B` while the left blade is open and focused,
    the blade hides completely.
 4. **E-01-04** If I have the left blade open but not focused, pressing `Super+B`
-   focuses it instead of hiding it.
+   hides it: one press closes an open blade wherever my focus is, and one
+   press opens and focuses a hidden one.
 5. **E-01-05** If I press `Super+Shift+B`, the right blade opens and takes focus
    without hiding the left blade.
 6. **E-01-06** After I focus a blade, my keyboard input controls the blade and
