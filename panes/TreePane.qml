@@ -979,24 +979,21 @@ FocusScope {
     anchors.fill: parent
     z: 95
     onChosen: function(key) {
-      root.controller.resolveTrashConfirmation(key === "trash")
+      trashConfirmation.resolve(key)
       root.focusTree()
     }
     onCanceled: {
-      root.controller.resolveTrashConfirmation(false)
+      trashConfirmation.resolve("cancel")
       root.focusTree()
     }
   }
 
-  Connections {
-    target: root.controller
-    ignoreUnknownSignals: true
-    function onTrashConfirmationRequested(paths) {
-      if (!root.visible || !root.context || !root.context.bladeOpen) return
-      trashDialog.open(root.trashPrompt(paths), [{ key: "cancel", label: "Cancel" }, { key: "trash", label: "Move to Trash", danger: true }])
-    }
-    function onPendingTrashPathsChanged() {
-      if (trashDialog.opened && root.controller.pendingTrashPaths.length === 0) trashDialog.close()
-    }
+  PluginUi.TrashConfirmationBinding {
+    id: trashConfirmation
+    controller: root.controller
+    dialog: trashDialog
+    paneVisible: root.visible && !!root.context && root.context.bladeOpen
+    choices: [{ key: "cancel", label: "Cancel" }, { key: "trash", label: "Move to Trash", danger: true }]
+    promptFor: function(paths) { return root.trashPrompt(paths) }
   }
 }

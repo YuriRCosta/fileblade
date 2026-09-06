@@ -661,11 +661,19 @@ fn trash_asks_first_with_cancel_selected_unless_the_setting_is_off() {
     assert!(service.contains("property var pendingTrashPaths: []"));
     assert!(service.contains("function resolveTrashConfirmation(confirm)"));
     assert!(operations.contains("service.pendingTrashPaths = targets.slice()"));
-    assert!(tree.contains("root.controller.resolveTrashConfirmation(key === \"trash\")"));
-    assert!(tree.contains("root.controller.resolveTrashConfirmation(false)"));
-    assert!(tree.contains(
-        "if (trashDialog.opened && root.controller.pendingTrashPaths.length === 0) trashDialog.close()"
-    ));
+    assert!(service.contains("property int trashConfirmationSerial: 0"));
+    assert!(operations.contains("service.trashConfirmationSerial++"));
+    let binding = text(&root.join("ui/TrashConfirmationBinding.qml"));
+    assert!(binding.contains("if (binding.dialog.opened) binding.dialog.close()"));
+    assert!(
+        binding
+            .contains("binding.requestSerial = Number(binding.controller.trashConfirmationSerial)")
+    );
+    assert!(binding.contains("if (!current) {"));
+    assert!(tree.contains("PluginUi.TrashConfirmationBinding {"));
+    assert!(tree.contains("trashConfirmation.resolve(key)"));
+    assert!(tree.contains("trashConfirmation.resolve(\"cancel\")"));
+    assert!(!tree.contains("function onTrashConfirmationRequested(paths)"));
     assert!(
         !tree.contains("property var pendingPaths: []"),
         "the trash confirmation must not keep per-screen pending paths"
