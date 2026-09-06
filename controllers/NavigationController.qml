@@ -1,6 +1,5 @@
 import QtQuick
 import "../lib/TreeOrder.js" as TreeOrder
-import Quickshell
 
 Item {
   id: controller
@@ -24,7 +23,8 @@ Item {
       service.closeActionMenu()
       service.cancelLocationValidation()
     } else {
-      focusTimer.restart()
+      var files = service.bladeHost.findModule("files")
+      focusAfterOpen(files ? service.bladeHost.preferredScreen(files.edge) : null)
     }
   }
 
@@ -159,7 +159,7 @@ Item {
   property string focusMonitor: ""
   property var focusTarget: null
   function focusAfterOpen(targetScreen) {
-    focusTarget = targetScreen || null
+    focusTarget = targetScreen || service.preferredScreen() || null
     focusMonitor = service.bladeHost.focusedMonitorName
     focusTimer.restart()
   }
@@ -171,7 +171,7 @@ Item {
     onTriggered: {
       if (!service.open || service.actionMenuOpen) return
       if (controller.focusMonitor !== service.bladeHost.focusedMonitorName) { controller.focusTarget = null; return }
-      var screen = controller.focusTarget || service.preferredScreen()
+      var screen = controller.focusTarget
       controller.focusTarget = null
       if (screen) controller.focusTree(screen)
     }

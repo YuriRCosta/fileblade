@@ -65,7 +65,7 @@ Item {
     error = ""
     if (target === service.normalizeRoot(service.rootPath) && service.treeModel.count > 0) {
       cancel(false)
-      if (navigationMode === "direct") service.locationValidationFinished(targetScreen || null, true, service.rootPath, "")
+      if (navigationMode === "direct") service.locationValidationFinished(targetScreen || null, true, service.rootPath, "", service.bladeHost.focusedMonitorName)
       else if (targetScreen) service.focusTree(targetScreen)
       return "current"
     }
@@ -91,7 +91,7 @@ Item {
     } else {
       service.setRootPath(target)
     }
-    if (mode === "direct") service.locationValidationFinished(targetScreen || null, true, target, "")
+    if (mode === "direct") service.locationValidationFinished(targetScreen || null, true, target, "", service.bladeHost.focusedMonitorName)
     else if (targetScreen) service.focusTree(targetScreen)
     return "opened"
   }
@@ -242,7 +242,7 @@ Item {
     error = request.mode === "favorite"
       ? "Favorite is unavailable: " + request.path + " — " + validationError
       : validationError
-    if (request.mode === "direct") service.locationValidationFinished(request.screen, false, request.path, validationError)
+    if (request.mode === "direct") service.locationValidationFinished(request.screen, false, request.path, validationError, String(request.monitor || ""))
   }
 
   function handleHistoryFailure(request) {
@@ -276,7 +276,7 @@ Item {
       service.setRootPath(destination)
     }
     var late = String(request.monitor || "") !== service.bladeHost.focusedMonitorName
-    if (request.mode === "direct") service.locationValidationFinished(late ? null : request.screen, true, destination, "")
+    if (request.mode === "direct") service.locationValidationFinished(request.screen, true, destination, "", String(request.monitor || ""))
     else if (request.screen && !late) service.focusTree(request.screen)
   }
 

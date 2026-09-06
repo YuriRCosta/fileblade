@@ -146,7 +146,7 @@ Item {
     }
   }
 
-  signal locationValidationFinished(var targetScreen, bool success, string path, string error)
+  signal locationValidationFinished(var targetScreen, bool success, string path, string error, string monitor)
   signal trashConfirmationRequested(var paths)
   property var pendingTrashPaths: []
   property int trashConfirmationSerial: 0

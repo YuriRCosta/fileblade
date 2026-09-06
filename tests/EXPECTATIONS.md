@@ -569,7 +569,7 @@ Automation for this section is pending.
      without sliding; turning animations on restores the slide.
 179. **E-21-10** On a multi-monitor setup, blades appear only where the
      Monitors setting allows and interact with windows on the same screen. The
-     Monitors choice in Settings offers Active (the default), All, and one
+     Monitors dropdown in Settings offers Active (the default), All, and one
      "Lock to" entry per detected monitor. With Active, a blade opens on the
      monitor I am working on and stays there; it does not follow my focus. If
      I press its shortcut while working on another monitor, the open blade
@@ -872,3 +872,47 @@ Covered by `tests/vm/expectations/26-hunk-review.sh`.
      ruler thumb stays.
 260. **E-31-06** Extension trees loaded through `ArtifactTree` show the same
      ruler and keep their scroll position when their rows refresh.
+
+## 34. Choosing a monitor
+
+`tests/vm/expectations/34-monitors.sh` uses two outputs in a disposable VM,
+including fractional scaling, a gap, a negative origin, and disconnection.
+It compares per-output layers, reserved space, real keyboard input and
+screenshots. Dialog, Settings and delayed-focus checks are marked pending
+until separately exercised.
+
+- **E-34-01** With Active selected, a blade opens on the monitor where I invoke
+  it and stays there while I work on another monitor. Only its own monitor
+  reserves space, and typing still reaches the application I focus elsewhere.
+- **E-34-02** Either blade's shortcut closes that blade in one press, even
+  while I work on another monitor. The next press opens and focuses it on the
+  monitor I am using. A closed blade has no remembered invocation monitor.
+- **E-34-03** I can keep the left blade on one monitor and the right blade on
+  another. Their sections, tabs, notes and width preferences still belong to
+  one shared layout. Opening or closing all blades follows the same rule.
+- **E-34-04** A monitor lock makes both shortcuts act on that monitor wherever
+  I am working. An unknown lock or explicit ineligible target is rejected
+  without redirecting the request or changing my settings.
+- **E-34-05** All mirrors the blades on every output. An older Primary setting
+  becomes a lock to the first detected monitor.
+- **E-34-06** If a locked monitor disconnects, its blades disappear without
+  moving elsewhere. The lock remains saved, opening reports no available
+  screen, and the blades become eligible when that named monitor returns.
+- **E-34-07** If an Active blade's monitor disconnects, the blade does not
+  migrate. Its shortcut first closes the unavailable blade; another press
+  opens it on the monitor where I am now working.
+- **E-34-08** The selection wheel can open on an explicitly targeted output,
+  regardless of the blade's monitor lock. A point between or outside outputs
+  is rejected without showing an offscreen wheel.
+- **E-34-09** Restarting preserves my shared layout and monitor setting.
+  Restored open Active blades use the first focused monitor reported after
+  startup; a saved lock continues to use its named monitor.
+- **E-34-10** Moving focus to another monitor does not transfer or cancel a
+  pending trash question. Changing the mode or lock so its owner is no longer
+  eligible cancels the question and leaves the files untouched.
+- **E-34-11** Settings lists Active, All, and a lock for each detected output.
+  Choosing a value changes where blades appear, and Escape dismisses Settings.
+- **E-34-12** A delayed navigation result keeps its original target. If I have
+  moved to another monitor, it may finish loading data but must not steal
+  keyboard focus. No blade chooses an arbitrary output before the focused
+  monitor is known.
