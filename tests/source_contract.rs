@@ -679,6 +679,16 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     ));
     assert!(host_text.contains("function validateScreenOwners()"));
     assert!(host_text.contains("function onScreensChanged() { host.validateScreenOwners() }"));
+    assert_eq!(
+        focus
+            .matches("\"--left-monitor\", host.bladeScreenName(\"left\"),")
+            .count(),
+        2
+    );
+    let native_window = text(&root.join("blades/BladeWindow.qml"));
+    assert!(
+        native_window.contains("screen: window.windowMode ? host.referenceScreen(null, edge) :")
+    );
     let wheel = text(&root.join("controllers/DropWheelController.qml"));
     assert!(wheel.contains("wheelScreen = targetScreen || service.referenceScreen(null)"));
     assert!(focus.contains("function bladePointerExited(edge, screen)"));

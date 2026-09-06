@@ -425,7 +425,7 @@ pub(super) fn focus_from_blade(
             "reason": format!("nothing beyond the {from_blade} blade"),
         }));
     }
-    let workspace = hypr_query("activeworkspace")?;
+    let workspace = focused_workspace()?;
     let Some(target) = edge_client(current, field_i64(&workspace, "id"), from_blade) else {
         let (target_edge, target_state) = direction_target(direction, options);
         let edge = if target_state == "open" {
@@ -433,11 +433,19 @@ pub(super) fn focus_from_blade(
         } else {
             from_blade.as_str()
         };
+        let monitor = field_str(&workspace, "monitor");
+        if !options.blade_reachable(edge, &monitor) {
+            return Ok(json!({
+                "ok": true,
+                "action": "none",
+                "reason": format!("the {edge} blade lives on another monitor"),
+            }));
+        }
         return Ok(json!({
             "ok": true,
             "action": "focus-blade",
             "edge": edge,
-            "monitor": field_str(&workspace, "monitor"),
+            "monitor": monitor,
             "reason": "no tiled window on the workspace",
         }));
     };
@@ -484,11 +492,18 @@ pub(super) fn focus_from_window(
         && !has_neighbour(client, current, direction)
         && state == "open"
     {
+        let monitor = monitor_name(client.get("monitor").cloned().unwrap_or(Value::Null));
+        if !options.blade_reachable(edge, &monitor) {
+            hypr_dispatch(&format!("hl.dsp.focus({{ direction = \"{direction}\" }})"))?;
+            return Ok(
+                json!({"ok": true, "action": "dispatched", "direction": direction, "reason": format!("the {edge} blade lives on another monitor")}),
+            );
+        }
         return Ok(json!({
             "ok": true,
             "action": "focus-blade",
             "edge": edge,
-            "monitor": monitor_name(client.get("monitor").cloned().unwrap_or(Value::Null)),
+            "monitor": monitor,
             "address": active_address,
         }));
     }
@@ -501,7 +516,7 @@ pub(super) fn focus_empty_workspace(
     options: &FocusDirectionOptions,
     current: &[Value],
 ) -> AppResult<Value> {
-    let workspace = hypr_query("activeworkspace")?;
+    let workspace = focused_workspace()?;
     let workspace_id = field_i64(&workspace, "id");
     if current.iter().any(|client| {
         field_bool(client, "mapped", true) && client_workspace_id(client) == workspace_id
@@ -520,13 +535,35 @@ pub(super) fn focus_empty_workspace(
             "reason": format!("the {edge} blade is not docked and open"),
         }));
     }
+    let monitor = field_str(&workspace, "monitor");
+    if !options.blade_reachable(edge, &monitor) {
+        return Ok(json!({
+            "ok": true,
+            "action": "none",
+            "reason": format!("the {edge} blade lives on another monitor"),
+        }));
+    }
     Ok(json!({
         "ok": true,
         "action": "focus-blade",
         "edge": edge,
-        "monitor": field_str(&workspace, "monitor"),
+        "monitor": monitor,
         "reason": "the workspace has no window",
     }))
+}
+
+pub(super) fn focused_workspace() -> AppResult<Value> {
+    let monitors = monitors_list()?;
+    if let Some(monitor) = monitors
+        .iter()
+        .find(|monitor| field_bool(monitor, "focused", false))
+    {
+        return Ok(json!({
+            "id": visible_workspace_of(monitor),
+            "monitor": field_str(monitor, "name"),
+        }));
+    }
+    hypr_query("activeworkspace")
 }
 
 pub(super) fn direction_target<'a>(

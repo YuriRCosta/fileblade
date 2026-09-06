@@ -444,6 +444,8 @@ fn dispatch_command(
                 from_blade: options.from_blade,
                 blade_titles: options.blade_title,
                 empty_only: options.empty_only,
+                left_monitor: options.left_monitor,
+                right_monitor: options.right_monitor,
             })
         }
         BackendCommand::HoverTarget(options) => crate::hyprland::hover_target(&options.blade_title),
