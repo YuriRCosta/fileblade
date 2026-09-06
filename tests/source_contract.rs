@@ -245,9 +245,11 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
         "var late = String(request.monitor || \"\") !== service.bladeHost.focusedMonitorName"
     ));
     let navigation = text(&root.join("controllers/NavigationController.qml"));
-    assert!(
-        navigation.contains("var screen = controller.focusTarget || service.preferredScreen()")
-    );
+    assert!(navigation.contains("focusTarget = targetScreen || service.preferredScreen() || null"));
+    assert!(navigation.contains(
+        "var screen = controller.focusTarget
+"
+    ));
     assert!(tab_bar.contains("closePointer.containsMouse ? Color.urgent"));
     assert!(tab_bar.contains("last.width + Math.round(tabRow.spacing / 2)"));
     assert!(!tab_bar.contains(
@@ -630,6 +632,10 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     assert!(ipc.contains("if (!target) return \"off-screen\""));
     let settings_sheet = text(&root.join("blades/BladeSettings.qml"));
     assert!(settings_sheet.contains("label: \"Monitors\""));
+    assert!(settings_sheet.contains("PluginUi.DropdownRow {"));
+    let dropdown = text(&root.join("ui/DropdownRow.qml"));
+    assert!(dropdown.contains("OptionPopup {"));
+    assert!(dropdown.contains("checked: String(option.key) === row.value"));
     let focus = text(&root.join("blades/BladeFocusController.qml"));
     assert!(focus.contains("function reconcileOwnership()"));
     let surface_text = text(&root.join("blades/BladeSurface.qml"));

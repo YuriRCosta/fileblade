@@ -437,18 +437,19 @@ FocusScope {
     function onTreeStructureRevisionChanged() { root.restoreTreeCursor() }
     function onSelectedPathChanged() { root.revealPending = true; root.restoreTreeCursor() }
     function onRootPathChanged() { treeKeys.reset() }
-    function onLocationValidationFinished(targetScreen, success, path, error) {
+    function onLocationValidationFinished(targetScreen, success, path, error, monitor) {
       if (!root.focusEnabled || !root.matchesScreen(targetScreen)) return
-      if (success) {
-        root.locationEditing = false
-        Qt.callLater(root.focusTree)
-      } else {
-        root.locationEditing = true
-        Qt.callLater(function() {
-          locationField.forceActiveFocus()
-          locationField.selectAll()
-        })
-      }
+      var requested = String(monitor || "")
+      root.locationEditing = !success
+      Qt.callLater(function() {
+        if (!root.focusEnabled || requested !== root.controller.bladeHost.focusedMonitorName) return
+        if (success) {
+          root.focusTree()
+          return
+        }
+        locationField.forceActiveFocus()
+        locationField.selectAll()
+      })
     }
   }
 
