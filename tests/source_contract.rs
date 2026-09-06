@@ -235,6 +235,12 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
         "{ key: \"close\", glyph: \"×\", label: \"Close tab\", enabled: bar.slot.tabs.length > 1 }"
     ));
     assert!(tab_bar.contains("bar.slot.requestCloseTab"));
+    let slot = text(&root.join("blades/BladeSlot.qml"));
+    assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index)"));
+    assert!(slot.contains("if (tabs.length > 1 && TabIdentity.matches(tabs, target)) host.removeTab(edge, slotIndex, index)"));
+    assert!(slot.contains(
+        "if (!closeTabDialog.opened || TabIdentity.matches(tabs, pendingCloseTarget)) return"
+    ));
     assert!(tab_bar.contains("closePointer.containsMouse ? Color.urgent"));
     assert!(tab_bar.contains("last.width + Math.round(tabRow.spacing / 2)"));
     assert!(!tab_bar.contains(
