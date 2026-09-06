@@ -108,7 +108,6 @@ FocusScope {
   }
 
   onTabsChanged: dropStaleCloseTab()
-  onSlotIdChanged: dropStaleCloseTab()
 
   function moduleRows() {
     var revision = host.registry.revision
@@ -147,7 +146,7 @@ FocusScope {
 
   onEntryUrlChanged: scheduleReload()
   onModuleIdChanged: scheduleReload()
-  onSlotIdChanged: scheduleReload()
+  onSlotIdChanged: { dropStaleCloseTab(); scheduleReload() }
   onActiveTabChanged: scheduleReload()
   readonly property point hoverPosition: hoverWatch.point.scenePosition
   property real lastHoverX: -1

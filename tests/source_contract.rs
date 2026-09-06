@@ -239,7 +239,12 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
     assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index, slotId)"));
     assert!(slot.contains("if (tabs.length > 1 && TabIdentity.matches(tabs, slotId, target)) host.removeTab(edge, slotIndex, index)"));
     assert!(slot.contains("onTabsChanged: dropStaleCloseTab()"));
-    assert!(slot.contains("onSlotIdChanged: dropStaleCloseTab()"));
+    assert!(slot.contains("onSlotIdChanged: { dropStaleCloseTab();"));
+    assert_eq!(
+        slot.matches("onSlotIdChanged").count(),
+        1,
+        "one handler per signal"
+    );
     let location = text(&root.join("controllers/LocationController.qml"));
     assert!(location.contains(
         "var late = String(request.monitor || \"\") !== service.bladeHost.focusedMonitorName"
@@ -1703,7 +1708,7 @@ fn declarative_settings_render_through_one_form_and_one_coercion_path() {
     assert!(slot.contains("BladeModuleLoader {"));
     assert!(slot.contains("loader.loadModule(entryUrl)"));
     assert!(slot.contains("onModuleIdChanged: scheduleReload()"));
-    assert!(slot.contains("onSlotIdChanged: scheduleReload()"));
+    assert!(slot.contains("onSlotIdChanged: { dropStaleCloseTab(); scheduleReload() }"));
     assert!(slot.contains("definition: slot.moduleInfo"));
     let sheet = text(&root.join("blades/BladeSettings.qml"));
     assert!(sheet.contains("var context = item.settingsContext || null"));
