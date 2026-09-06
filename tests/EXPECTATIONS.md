@@ -601,6 +601,9 @@ Automation for the remaining tab-management scenarios is pending.
      row and remains after reopening the blade; clearing the name restores its
      normal module title.
 185. **E-22-06** If I close a tab with its `×`, FileBlade asks for confirmation;
+     if the section's tabs change while that question is open, for example
+     from another monitor, the question closes instead of removing a
+     different tab;
      middle-clicking a tab closes it directly.
 186. **E-22-07** I cannot close the only tab in a section by mistake; I remove the
      whole section from Settings when that is what I intend.

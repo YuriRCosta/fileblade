@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/TabIdentity.js" as TabIdentity
 import qs.Commons
 import "../ui" as PluginUi
 
@@ -13,6 +14,7 @@ FocusScope {
   property bool bladeOpen: false
   property bool bladeFocused: false
   property int pendingCloseTab: -1
+  property var pendingCloseTarget: null
   property real moduleMenuX: 0
   readonly property bool modulePickerOpen: moduleMenu.visible
 
@@ -84,6 +86,7 @@ FocusScope {
     var index = Number(tabIndex)
     if (tabs.length <= 1 || !host.validIndex(index, tabs.length)) return false
     pendingCloseTab = index
+    pendingCloseTarget = TabIdentity.capture(tabs, index)
     closeTabDialog.open("Close tab?\n" + host.tabTitle(edge, slotIndex, index),
                         [{ key: "cancel", label: "Cancel" }, { key: "close", label: "Close", danger: true }])
     return true
@@ -91,8 +94,17 @@ FocusScope {
 
   function confirmCloseTab() {
     var index = pendingCloseTab
+    var target = pendingCloseTarget
     pendingCloseTab = -1
-    if (tabs.length > 1 && host.validIndex(index, tabs.length)) host.removeTab(edge, slotIndex, index)
+    pendingCloseTarget = null
+    if (tabs.length > 1 && TabIdentity.matches(tabs, target)) host.removeTab(edge, slotIndex, index)
+  }
+
+  onTabsChanged: {
+    if (!closeTabDialog.opened || TabIdentity.matches(tabs, pendingCloseTarget)) return
+    pendingCloseTab = -1
+    pendingCloseTarget = null
+    closeTabDialog.close()
   }
 
   function moduleRows() {
@@ -250,7 +262,7 @@ FocusScope {
     id: closeTabDialog
     anchors.fill: parent
     z: 60
-    onCanceled: slot.pendingCloseTab = -1
+    onCanceled: { slot.pendingCloseTab = -1; slot.pendingCloseTarget = null }
     onChosen: function(key) { if (key === "close") slot.confirmCloseTab() }
   }
 
