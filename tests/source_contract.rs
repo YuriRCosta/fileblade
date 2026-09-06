@@ -642,6 +642,22 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
             "if (mode === \"locked\" && !screenNamed(wanted)) return \"unknown-monitor\""
         )
     );
+    assert!(
+        surface_text.contains("readonly property int bladeWidth: Math.max(host.minimumWidth, Math.min(liveWidth > 0 ? liveWidth : storedWidth, surfaceWidth))"),
+        "each surface clamps its rendered width to its own screen without rewriting the stored width"
+    );
+    assert!(
+        ipc.contains("return bladeHost.toggleBladeFocus(edge, bladeHost.preferredScreen(edge))")
+    );
+    assert!(ipc.contains(
+        "return bladeHost.toggleBladeFocus(\"left\", bladeHost.preferredScreen(\"left\"))"
+    ));
+    assert!(ipc.contains("? \"focused\" : \"no-screen\""));
+    assert!(focus.contains("? \"opened\" : \"no-screen\""));
+    assert!(layout.contains("onLayoutChanged: adoptInvocationScreens()"));
+    assert!(layout.contains(
+        "if (previous === \"\" && focusedMonitorName !== \"\") adoptInvocationScreens()"
+    ));
     let wheel = text(&root.join("controllers/DropWheelController.qml"));
     assert!(wheel.contains("wheelScreen = targetScreen || service.referenceScreen(null)"));
     assert!(focus.contains("function bladePointerExited(edge, screen)"));
