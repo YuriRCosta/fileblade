@@ -60,7 +60,7 @@ FloatingWindow {
 
   title: host.windowTitle(edge)
   visible: bladeOpen
-  screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+  screen: window.windowMode ? host.referenceScreen(null, edge) : (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
   color: Color.bar.background
   minimumSize: Qt.size(host.minimumWidth, Style.space(240))
   implicitWidth: bladeWidth
