@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/MonitorMode.js" as MonitorMode
 import qs.Commons
 
 Item {
@@ -61,7 +62,7 @@ Item {
   }
 
   function normalizeMonitorMode(value) {
-    return String(value || "").toLowerCase() === "primary" ? "primary" : "all"
+    return MonitorMode.normalize(value)
   }
 
   readonly property var priorityPropertyChoices: [

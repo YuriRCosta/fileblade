@@ -174,7 +174,7 @@ Item {
   }
 
   function pasteAt(targetScreen, x, y, form) {
-    wheelScreen = targetScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    wheelScreen = targetScreen || service.referenceScreen(null)
     wheelX = Number(x) || 0
     wheelY = Number(y) || 0
     var arguments = ["--form", form]
@@ -218,7 +218,7 @@ Item {
       var top = Number(candidate.y) || 0
       if (x >= left && x < left + candidate.width && y >= top && y < top + candidate.height) return candidate
     }
-    return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    return null
   }
 
   function openForSelection(targetScreen, x, y) {
@@ -233,7 +233,7 @@ Item {
 
   function openWheel(targetScreen, x, y, fromDrag) {
     if (wheelOpen) close()
-    wheelScreen = targetScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    wheelScreen = targetScreen || service.referenceScreen(null)
     wheelX = Number(x) || 0
     wheelY = Number(y) || 0
     wheelFromDrag = !!fromDrag

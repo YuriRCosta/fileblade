@@ -36,7 +36,7 @@ Item {
     service.operationError = ""
     rememberDefault = false
     if (targetScreen) screen = targetScreen
-    else if (!screen && Quickshell.screens.length > 0) screen = Quickshell.screens[0]
+    else if (!screen) screen = service.referenceScreen(null)
     var nextX = Number(targetX)
     var nextY = Number(targetY)
     if (isFinite(nextX)) menuX = nextX
@@ -92,6 +92,7 @@ Item {
   function close() {
     if (mode === "open-with") service.cancelApplicationLookup()
     open = false
+    screen = null
     mode = "actions"
     path = ""
     entry = null

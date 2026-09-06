@@ -156,13 +156,18 @@ Item {
     return service.showHidden
   }
 
-  function focusAfterOpen() { focusTimer.restart() }
+  property string focusMonitor: ""
+  function focusAfterOpen() { focusMonitor = service.bladeHost.focusedMonitorName; focusTimer.restart() }
   function yieldFocus() { focusTimer.stop() }
 
   Timer {
     id: focusTimer
     interval: 120
-    onTriggered: if (service.open && !service.actionMenuOpen && Quickshell.screens.length > 0)
-      controller.focusTree(Quickshell.screens[0])
+    onTriggered: {
+      if (!service.open || service.actionMenuOpen) return
+      if (controller.focusMonitor !== service.bladeHost.focusedMonitorName) return
+      var screen = service.referenceScreen(null)
+      if (screen) controller.focusTree(screen)
+    }
   }
 }

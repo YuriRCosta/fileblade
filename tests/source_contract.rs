@@ -582,7 +582,62 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     assert!(host.contains("function windowToggle()"));
     assert!(host.contains("dispatchWindow([\"--action\", \"float\"])"));
 
+    let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
+    for name in [
+        "controllers/FileTreeIpc.qml",
+        "controllers/PickerController.qml",
+        "controllers/NavigationController.qml",
+        "controllers/SearchController.qml",
+        "controllers/ActionMenuController.qml",
+        "controllers/DropWheelController.qml",
+        "Service.qml",
+        "blades/BladeHost.qml",
+    ] {
+        assert!(
+            !text(&root.join(name)).contains("Quickshell.screens[0]"),
+            "{name} must resolve screens through BladeLayout.preferredScreen/referenceScreen"
+        );
+    }
+    let layout = text(&root.join("blades/BladeLayout.qml"));
+    assert!(layout.contains("import \"../lib/MonitorMode.js\" as MonitorMode"));
+    assert!(
+        layout.contains(
+            "Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || \"\") : \"\""
+        )
+    );
+    assert!(layout.contains("function panelActiveFor(panelScreen, edge)"));
+    assert!(layout.contains("function noteOpened(edge)"));
+    assert!(layout.contains("monitorLock: monitorLock, animations: animateBlades"));
+    assert!(ipc.contains("function setMonitorMode(mode: string, monitor: string): string"));
+    assert!(ipc.contains("focusedMonitor: bladeHost.focusedMonitorName,"));
+    assert!(ipc.contains("bladeScreens: { left: bladeHost.bladeScreenName(\"left\"), right: bladeHost.bladeScreenName(\"right\") },"));
+    assert!(
+        ipc.contains("if (String(monitor || \"\") !== \"\" && !screen) return \"unknown-monitor\"")
+    );
+    assert!(ipc.contains("if (!target) return \"off-screen\""));
+    let settings_sheet = text(&root.join("blades/BladeSettings.qml"));
+    assert!(settings_sheet.contains("label: \"Monitors\""));
     let focus = text(&root.join("blades/BladeFocusController.qml"));
+    assert!(focus.contains("function reconcileOwnership()"));
+    let surface_text = text(&root.join("blades/BladeSurface.qml"));
+    assert!(
+        surface_text.contains("openedAt = Date.now()\n      pointerRefocusRequired = true"),
+        "a surface that maps under a stationary pointer must wait for movement before taking focus"
+    );
+    assert!(
+        !focus.contains("focusedmon\" && host.monitorMode"),
+        "blades must not follow monitor focus; they stay where they were invoked"
+    );
+    assert!(focus.contains("if (!isWindowMode(target) && screen && isOpen(target) && !host.panelActiveFor(screen, target)) return false"));
+    let host_text = text(&root.join("blades/BladeHost.qml"));
+    assert!(host_text.contains("if (desired) bladeLayout.noteOpened(target)"));
+    assert!(
+        host_text.contains(
+            "if (mode === \"locked\" && !screenNamed(wanted)) return \"unknown-monitor\""
+        )
+    );
+    let wheel = text(&root.join("controllers/DropWheelController.qml"));
+    assert!(wheel.contains("wheelScreen = targetScreen || service.referenceScreen(null)"));
     assert!(focus.contains("function bladePointerExited(edge, screen)"));
     assert!(focus.contains("service.backendRequest(\"hover-target\""));
     assert!(!focus.contains("hover-watch"));

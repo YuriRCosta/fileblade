@@ -40,7 +40,8 @@ QtObject {
     var blades = layout && layout.blades ? layout.blades : ({})
     return {
       version: Number(layout && layout.version) || 1,
-      monitorMode: String(layout && layout.monitorMode || "primary"),
+      monitorMode: String(layout && layout.monitorMode || "active"),
+      monitorLock: String(layout && layout.monitorLock || ""),
       animations: !!(layout && layout.animations),
       blades: { left: publicBlade(blades.left), right: publicBlade(blades.right) }
     }
@@ -88,7 +89,7 @@ QtObject {
   }
 
   function setRoot(path: string): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     return service.navigateToLocation(path, target, "browse")
   }
 
@@ -109,13 +110,15 @@ QtObject {
   }
 
   function setSidebarWidth(width: string): string {
-    var screenWidth = Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 0
+    var reference = service.referenceScreen(null)
+    var screenWidth = reference ? reference.width : 0
     service.setSidebarWidth(Number(width), screenWidth, true)
     return String(service.sidebarWidth)
   }
 
   function setPropertiesBladeWidth(width: string): string {
-    var screenWidth = Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 0
+    var reference = service.referenceScreen(null)
+    var screenWidth = reference ? reference.width : 0
     service.setPropertiesBladeWidth(Number(width), screenWidth, true)
     return String(service.propertiesBladeWidth)
   }
@@ -206,6 +209,9 @@ QtObject {
       gitEnabled: service.gitEnabled,
       trashRetentionDays: service.trashRetentionDays,
       monitorMode: service.monitorMode,
+      monitorLock: bladeHost.monitorLock,
+      focusedMonitor: bladeHost.focusedMonitorName,
+      bladeScreens: { left: bladeHost.bladeScreenName("left"), right: bladeHost.bladeScreenName("right") },
       serviceGeneration: service.serviceGeneration,
       pluginWatcherFiltered: service.pluginWatcherFiltered,
       pluginWatcherStopPending: service.pluginWatcherStopPending,
@@ -459,7 +465,7 @@ QtObject {
   function showActions(): string {
     if (service.selectedCount === 0) return "no-selection"
     service.setOpen(true)
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.openActionMenu("actions", target, service.sidebarWidth - Style.space(8), Style.space(70))
     return "open"
   }
@@ -470,7 +476,7 @@ QtObject {
     var entry = service.selectedEntries[0]
     if (!entry || entry.isDir || entry.gitDeleted) return "not-a-file"
     service.setOpen(true)
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.openActionMenu("open-with", target, service.sidebarWidth - Style.space(8), Style.space(70))
     return "open"
   }
@@ -486,6 +492,7 @@ QtObject {
     var pointY = Number(y)
     if (!isFinite(pointX) || !isFinite(pointY)) return "invalid-point"
     var target = service.dropWheel.screenAt(pointX, pointY)
+    if (!target) return "off-screen"
     var localX = pointX - (target ? Number(target.x) || 0 : 0)
     var localY = pointY - (target ? Number(target.y) || 0 : 0)
     return service.dropWheel.openForSelection(target, localX, localY) ? "open" : "no-selection"
@@ -677,23 +684,23 @@ QtObject {
   }
 
   function focusBlade(edge: string): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     bladeHost.focusBlade(edge, target, -1, "", true)
     return "focused"
   }
 
   function toggleBladeFocus(edge: string): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     return bladeHost.toggleBladeFocus(edge, target)
   }
 
   function focusLeft(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     return bladeHost.toggleBladeFocus("left", target)
   }
 
   function focusRight(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     return bladeHost.toggleBladeFocus("right", target)
   }
 
@@ -732,7 +739,8 @@ QtObject {
   }
 
   function setBladeWidth(edge: string, width: string): string {
-    var screenWidth = Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 0
+    var reference = service.referenceScreen(null)
+    var screenWidth = reference ? reference.width : 0
     return String(bladeHost.setWidth(edge, Number(width), screenWidth, true))
   }
 
@@ -845,9 +853,14 @@ QtObject {
     return bladeHost.windowSwap(direction)
   }
 
+  function setMonitorMode(mode: string, monitor: string): string {
+    return String(bladeHost.setMonitorMode(mode, monitor))
+  }
+
   function focusBladeOn(edge: string, monitor: string): string {
-    bladeHost.focusBlade(edge, bladeHost.screenNamed(monitor), -1, "", true)
-    return "focused"
+    var screen = bladeHost.screenNamed(monitor)
+    if (String(monitor || "") !== "" && !screen) return "unknown-monitor"
+    return bladeHost.focusBlade(edge, screen, -1, "", true) ? "focused" : "no-screen"
   }
 
   function moveBladeSlot(sourceEdge: string, sourceIndex: string, targetEdge: string, targetIndex: string, tabIndex: string): string {
@@ -871,31 +884,31 @@ QtObject {
   }
 
   function focusTree(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.focusTree(target)
     return "ok"
   }
 
   function focusProperties(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.focusProperties(target)
     return "ok"
   }
 
   function focusSearch(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.focusSearch(target)
     return "ok"
   }
 
   function focusLocation(): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     service.focusLocation(target)
     return "ok"
   }
 
   function navigate(path: string): string {
-    var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    var target = service.referenceScreen(null)
     return service.navigateToLocation(path, target, "browse")
   }
 

@@ -17,7 +17,7 @@ PanelWindow {
 
   readonly property bool isRight: edge === "right"
   readonly property var blade: host.bladeFor(edge)
-  readonly property bool panelEnabled: host.panelActiveFor(screen)
+  readonly property bool panelEnabled: host.panelActiveFor(screen, edge)
   readonly property bool windowMode: host.isWindowMode(edge)
   readonly property bool surfaceActive: panelEnabled && !windowMode
   readonly property bool bladeOpen: panelEnabled && !windowMode && !!blade.open
@@ -178,6 +178,9 @@ PanelWindow {
   onBladeOpenChanged: {
     if (bladeOpen) {
       openedAt = Date.now()
+      pointerRefocusRequired = true
+      lastSheetHoverX = -1
+      lastSheetHoverY = -1
       showSheet()
     } else {
       releaseKeyboardFocus()
