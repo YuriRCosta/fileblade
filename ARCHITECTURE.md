@@ -246,7 +246,15 @@ and forgets the old workspace focus instead of restoring it over the
 application being opened. The drop wheel uses
 the same boundary before file or mixed batches, direct path pastes, and every
 action that opens or targets an editor, terminal, multiplexer, or application;
-known target windows are explicitly focused after their operation. New backend
+known target windows are explicitly focused after their operation. A drop
+target whose process is shared by another mapped window (single-process
+terminals) cannot be resolved through its process tree; `context.rs` marks it
+shared and resolves a herdr pane only when the live window title names one
+workspace across the herdr sessions found in that tree, revalidating title,
+process and pane at execution, while tmux and nvim in such a window are
+ambiguous. Ambiguous targets carry `ambiguous` and `reason`, lose their mux,
+hunk-pane, nvim and pane-paste actions, and the backend refuses those actions
+with the reason. New backend
 wheel actions default to this external boundary unless the focus policy marks
 them as local. Directory-only opens stay inside FileBlade and keep blade focus;
 in a mixed batch, folders navigate in the background and cannot reclaim focus

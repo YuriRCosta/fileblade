@@ -88,6 +88,24 @@ pub(super) fn process_descendants(root_pid: u32) -> Vec<ProcessRow> {
         .collect()
 }
 
+pub(super) fn environment_values(processes: &[ProcessRow], key: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    for row in processes.iter().take(128) {
+        let bytes = bounded_file_bytes(&PathBuf::from(format!("/proc/{}/environ", row.pid)));
+        for item in bytes.split(|byte| *byte == 0) {
+            if let Some(value) = item.strip_prefix(format!("{key}=").as_bytes())
+                && value.starts_with(b"/")
+            {
+                let text = path_text(Path::new(OsStr::from_bytes(value)));
+                if !text.is_empty() && !values.contains(&text) {
+                    values.push(text);
+                }
+            }
+        }
+    }
+    values
+}
+
 pub(super) fn environment_value(processes: &[ProcessRow], key: &str) -> String {
     for row in processes.iter().take(128) {
         let bytes = bounded_file_bytes(&PathBuf::from(format!("/proc/{}/environ", row.pid)));
@@ -164,6 +182,162 @@ pub(super) fn herdr_process_context(processes: &[ProcessRow]) -> Value {
         "pane_id": pane_id,
         "socket": socket,
     })
+}
+
+fn ambiguous(reason: &str) -> Value {
+    json!({"ambiguous": true, "reason": reason})
+}
+
+fn herdr_workspaces(binary: &Path, socket: &str) -> Option<Vec<Value>> {
+    herdr_query(binary, &["workspace", "list"], socket)
+        .and_then(|query| query.run())
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| serde_json::from_slice::<Value>(&output.stdout).ok())
+        .and_then(|value| {
+            value
+                .pointer("/result/workspaces")
+                .and_then(Value::as_array)
+                .cloned()
+        })
+}
+
+fn herdr_panes(binary: &Path, socket: &str, workspace_id: &str) -> Option<Vec<Value>> {
+    herdr_query(
+        binary,
+        &["pane", "list", "--workspace", workspace_id],
+        socket,
+    )
+    .and_then(|query| query.run())
+    .ok()
+    .filter(|output| output.status.success())
+    .and_then(|output| serde_json::from_slice::<Value>(&output.stdout).ok())
+    .and_then(|value| {
+        value
+            .pointer("/result/panes")
+            .and_then(Value::as_array)
+            .cloned()
+    })
+}
+
+fn unique_workspace_for_title(
+    binary: &Path,
+    sockets: &[String],
+    title: &str,
+) -> Result<(String, String), &'static str> {
+    let mut matches = Vec::new();
+    for socket in sockets {
+        let Some(workspaces) = herdr_workspaces(binary, socket) else {
+            return Err("cannot identify this window's pane: a herdr session did not answer");
+        };
+        for workspace in workspaces
+            .iter()
+            .filter(|workspace| title_names_workspace(title, workspace))
+        {
+            matches.push((socket.clone(), text_field(workspace, "workspace_id")));
+        }
+    }
+    match matches.as_slice() {
+        [found] => Ok(found.clone()),
+        [] => Err("cannot identify this window's pane: its title names no herdr workspace"),
+        _ => {
+            Err("cannot identify this window's pane: its title names more than one herdr workspace")
+        }
+    }
+}
+
+pub(super) fn herdr_window_context(processes: &[ProcessRow], title: &str) -> Value {
+    let Some(binary) = which("herdr") else {
+        return ambiguous("herdr is not on PATH");
+    };
+    let sockets = environment_values(processes, "HERDR_SOCKET_PATH");
+    if sockets.is_empty() {
+        return ambiguous(
+            "cannot identify this window's pane: no herdr session in this window's process tree",
+        );
+    }
+    let (socket, workspace_id) = match unique_workspace_for_title(&binary, &sockets, title) {
+        Ok(found) => found,
+        Err(reason) => return ambiguous(reason),
+    };
+    let Some(panes) = herdr_panes(&binary, &socket, &workspace_id) else {
+        return ambiguous(
+            "cannot identify this window's pane: the herdr session did not list its panes",
+        );
+    };
+    let pane = focused_row(Some(&Value::Array(panes))).unwrap_or(Value::Null);
+    let pane_id = text_field(&pane, "pane_id");
+    if pane_id.is_empty() {
+        return ambiguous(
+            "cannot identify this window's pane: the herdr workspace named by its title has no focused pane",
+        );
+    }
+    json!({
+        "workspace_id": workspace_id,
+        "tab_id": text_field(&pane, "tab_id"),
+        "pane_id": pane_id,
+        "socket": socket,
+        "resolved_by": "title",
+    })
+}
+
+pub(super) fn revalidate_title_target(target: &Value) -> Result<(), String> {
+    let terminal = target.get("terminal").unwrap_or(&Value::Null);
+    if text_field(terminal, "resolved_by") != "title" {
+        return Ok(());
+    }
+    let address = text_field(target, "address");
+    let live = crate::hyprland::hypr_query("clients")
+        .ok()
+        .and_then(|clients| clients.as_array().cloned())
+        .and_then(|clients| {
+            clients
+                .into_iter()
+                .find(|client| text_field(client, "address") == address)
+        })
+        .ok_or_else(|| "the drop target window is gone".to_string())?;
+    if live.get("pid").and_then(Value::as_i64) != target.get("pid").and_then(Value::as_i64) {
+        return Err("the drop target window changed process".to_string());
+    }
+    let title = text_field(&live, "title");
+    let socket = text_field(terminal, "socket");
+    let workspace_id = text_field(terminal, "workspace_id");
+    let pane_id = text_field(terminal, "pane_id");
+    let live_pid = live.get("pid").and_then(Value::as_u64).unwrap_or(0) as u32;
+    let sockets = environment_values(&process_descendants(live_pid), "HERDR_SOCKET_PATH");
+    if sockets.is_empty() {
+        return Err(
+            "cannot identify this window's pane any more: no herdr session in its process tree"
+                .to_string(),
+        );
+    }
+    let Some(binary) = which("herdr") else {
+        return Err("herdr is not on PATH".to_string());
+    };
+    match unique_workspace_for_title(&binary, &sockets, &title) {
+        Ok((found_socket, found_workspace)) if found_socket == socket && found_workspace == workspace_id => {}
+        Ok(_) => return Err("cannot identify this window's pane any more: the window now shows another herdr workspace".to_string()),
+        Err(reason) => return Err(reason.to_string()),
+    }
+    let panes = herdr_panes(&binary, &socket, &workspace_id).ok_or_else(|| {
+        "cannot identify this window's pane any more: the herdr session did not list its panes"
+            .to_string()
+    })?;
+    if !panes
+        .iter()
+        .any(|pane| text_field(pane, "pane_id") == pane_id)
+    {
+        return Err("cannot identify this window's pane any more: the pane is gone".to_string());
+    }
+    Ok(())
+}
+
+pub fn title_names_workspace(title: &str, workspace: &Value) -> bool {
+    let wanted = title.trim();
+    let label = text_field(workspace, "label");
+    !wanted.is_empty()
+        && !label.is_empty()
+        && (wanted == label || wanted.ends_with(&format!(": {label}")))
 }
 
 pub(super) fn session_argument(arguments: &[String]) -> Option<String> {
@@ -300,4 +474,32 @@ pub(super) fn tmux_client(processes: &[ProcessRow]) -> Value {
         }
     }
     json!({})
+}
+
+pub(super) fn tmux_focused_client(_processes: &[ProcessRow]) -> Value {
+    ambiguous(
+        "this terminal window shares its process with other windows and tmux offers no way to tell which client is in it",
+    )
+}
+
+#[cfg(test)]
+mod shared_window_tests {
+    use super::title_names_workspace;
+    use serde_json::json;
+
+    #[test]
+    fn a_window_title_names_a_workspace_by_label_with_or_without_the_host_prefix() {
+        let workspace = json!({"workspace_id": "wG", "label": "omen ouroboros"});
+        assert!(title_names_workspace("omen ouroboros", &workspace));
+        assert!(title_names_workspace(
+            "asparagus: omen ouroboros",
+            &workspace
+        ));
+        assert!(!title_names_workspace("asparagus: omen", &workspace));
+        assert!(!title_names_workspace("", &workspace));
+        assert!(!title_names_workspace(
+            "omen ouroboros",
+            &json!({"workspace_id": "w1", "label": ""})
+        ));
+    }
 }

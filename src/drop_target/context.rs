@@ -14,7 +14,7 @@ pub fn drop_context(
                 "ok": false,
                 "error": error.to_string(),
                 "at": {"x": x.unwrap_or(0), "y": y.unwrap_or(0)},
-                "target": classify_target(None, &[]),
+                "target": classify_target(None, &[], false),
                 "files": facts,
                 "actions": [],
             });
@@ -27,7 +27,7 @@ pub fn drop_context(
 fn drop_context_at(point: (i64, i64), facts: Value, target_result: AppResult<Value>) -> Value {
     let (target, target_warning) = match target_result {
         Ok(target) => (target, None),
-        Err(error) => (classify_target(None, &[]), Some(error.to_string())),
+        Err(error) => (classify_target(None, &[], false), Some(error.to_string())),
     };
     if facts.get("count").and_then(Value::as_u64).unwrap_or(0) == 0 {
         return json!({
@@ -58,7 +58,7 @@ pub(super) fn target_at(x: i64, y: i64, blade_titles: &[String]) -> AppResult<Va
         .cloned()
         .ok_or_else(|| AppError::command("Hyprland clients response was not a list"))?;
     if !has_window_at_point(&clients, x, y, blade_titles) {
-        return Ok(classify_target(None, &[]));
+        return Ok(classify_target(None, &[], false));
     }
     let workspace_id = crate::hyprland::workspace_visible_at_point(x, y)?;
     let client = window_under_cursor(&clients, x, y, workspace_id, blade_titles);
@@ -68,22 +68,45 @@ pub(super) fn target_at(x: i64, y: i64, blade_titles: &[String]) -> AppResult<Va
         .and_then(Value::as_u64)
         .map(|pid| process_descendants(pid as u32))
         .unwrap_or_default();
-    Ok(classify_target(client.as_ref(), &processes))
+    let shared = client
+        .as_ref()
+        .map(|target| shares_process(&clients, target))
+        .unwrap_or(false);
+    Ok(classify_target(client.as_ref(), &processes, shared))
 }
 
-pub(super) fn classify_target(client: Option<&Value>, processes: &[ProcessRow]) -> Value {
+pub(super) fn shares_process(clients: &[Value], target: &Value) -> bool {
+    let pid = target.get("pid").and_then(Value::as_i64).unwrap_or(0);
+    let address = text_field(target, "address");
+    pid > 0
+        && clients.iter().any(|client| {
+            client.get("pid").and_then(Value::as_i64) == Some(pid)
+                && text_field(client, "address") != address
+                && client
+                    .get("mapped")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true)
+        })
+}
+
+pub(super) fn classify_target(
+    client: Option<&Value>,
+    processes: &[ProcessRow],
+    shared: bool,
+) -> Value {
     let Some(client) = client else {
         return json!({"kind": "desktop", "label": "Desktop", "address": "", "class": "", "title": "", "pid": 0});
     };
     let class = text_field(client, "class");
+    let title = text_field(client, "title");
     let base = json!({
         "address": text_field(client, "address"),
         "class": class,
-        "title": text_field(client, "title"),
+        "title": title,
         "pid": client.get("pid").and_then(Value::as_i64).unwrap_or(0),
     });
     if terminal_class(&class) {
-        let classified = classify_terminal(&class, processes);
+        let classified = classify_terminal(&class, processes, shared, &title);
         let label = terminal_label(&classified);
         return extend_result(base, extend_result(classified, json!({"label": label})));
     }
@@ -108,25 +131,53 @@ pub(super) fn classify_target(client: Option<&Value>, processes: &[ProcessRow]) 
     )
 }
 
-pub(super) fn classify_terminal(class: &str, processes: &[ProcessRow]) -> Value {
+pub(super) fn classify_terminal(
+    class: &str,
+    processes: &[ProcessRow],
+    shared: bool,
+    title: &str,
+) -> Value {
     let comms: HashSet<&str> = processes.iter().map(|row| row.comm.as_str()).collect();
     if class == "org.omarchy.nvim" || comms.contains("nvim") {
+        if shared {
+            return json!({"kind": "editor", "editor": {"kind": "nvim", "server": "", "ambiguous": true,
+                "reason": "cannot identify this window's nvim: the terminal process is shared with other windows"}});
+        }
         return json!({"kind": "editor", "editor": {"kind": "nvim", "server": nvim_server(processes)}});
     }
     if comms.contains("herdr") {
         let mut terminal = json!({"multiplexer": "herdr"});
-        terminal = extend_result(terminal, herdr_process_context(processes));
+        let context = if shared {
+            herdr_window_context(processes, title)
+        } else {
+            herdr_process_context(processes)
+        };
+        terminal = extend_result(terminal, context);
         return json!({"kind": "terminal", "terminal": terminal});
     }
     if comms.contains("tmux: client") {
         let mut terminal = json!({"multiplexer": "tmux"});
-        terminal = extend_result(terminal, tmux_client(processes));
+        let context = if shared {
+            tmux_focused_client(processes)
+        } else {
+            tmux_client(processes)
+        };
+        terminal = extend_result(terminal, context);
         return json!({"kind": "terminal", "terminal": terminal});
     }
     json!({"kind": "terminal", "terminal": {"multiplexer": "none"}})
 }
 
 pub(super) fn terminal_label(value: &Value) -> String {
+    if value.get("kind").and_then(Value::as_str) == Some("editor")
+        && value
+            .get("editor")
+            .and_then(|editor| editor.get("ambiguous"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    {
+        return "nvim (shared window)".to_string();
+    }
     if value.get("kind").and_then(Value::as_str) == Some("editor") {
         return "nvim".to_string();
     }
@@ -137,6 +188,13 @@ pub(super) fn terminal_label(value: &Value) -> String {
         .unwrap_or("none");
     if multiplexer == "none" {
         "terminal".to_string()
+    } else if value
+        .get("terminal")
+        .and_then(|terminal| terminal.get("ambiguous"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        format!("terminal ({multiplexer}, shared window)")
     } else {
         format!("terminal ({multiplexer})")
     }
@@ -334,5 +392,32 @@ mod tests {
                 .as_array()
                 .is_some_and(|rows| !rows.is_empty())
         );
+    }
+}
+
+#[cfg(test)]
+mod shared_process_tests {
+    use super::shares_process;
+    use serde_json::json;
+
+    #[test]
+    fn a_target_is_shared_when_another_mapped_window_has_its_pid() {
+        let target = json!({"pid": 42, "address": "0x1", "mapped": true});
+        let clients = vec![
+            target.clone(),
+            json!({"pid": 42, "address": "0x2", "mapped": true}),
+            json!({"pid": 7, "address": "0x3", "mapped": true}),
+        ];
+        assert!(shares_process(&clients, &target));
+        let alone = vec![
+            target.clone(),
+            json!({"pid": 7, "address": "0x3", "mapped": true}),
+        ];
+        assert!(!shares_process(&alone, &target));
+        let unmapped = vec![
+            target.clone(),
+            json!({"pid": 42, "address": "0x2", "mapped": false}),
+        ];
+        assert!(!shares_process(&unmapped, &target));
     }
 }

@@ -87,7 +87,17 @@ pub(super) fn run_target(
     target: &Value,
     facts: &Value,
 ) -> AppResult<Value> {
+    if let Some(reason) = ambiguous_reason(target) {
+        return Ok(
+            json!({"ok": false, "error": format!("{reason}; open a new terminal window instead")}),
+        );
+    }
     if action == "mux-open" {
+        if let Err(reason) = revalidate_title_target(target) {
+            return Ok(
+                json!({"ok": false, "error": format!("{reason}; open a new terminal window instead")}),
+            );
+        }
         let result = run_multiplexer(runner, placement, target, facts)?;
         if result.get("ok").and_then(Value::as_bool) == Some(true) {
             focus_target(runner, target)?;
@@ -203,6 +213,16 @@ fn run_review(
     if matches!(placement, "" | "window") {
         return run_generic(runner, "review", facts);
     }
+    if let Some(reason) = ambiguous_reason(target) {
+        return Ok(
+            json!({"ok": false, "error": format!("{reason}; open a new terminal window instead")}),
+        );
+    }
+    if let Err(reason) = revalidate_title_target(target) {
+        return Ok(
+            json!({"ok": false, "error": format!("{reason}; open a new terminal window instead")}),
+        );
+    }
     let Some(multiplexer) = resolved_multiplexer(target) else {
         return Ok(json!({"ok": false, "error": "This target has no resolved multiplexer"}));
     };
@@ -252,6 +272,11 @@ pub(super) fn run_paste(
     form: &str,
 ) -> AppResult<Value> {
     let text = paste_text(target, facts, form);
+    if let Some(reason) = ambiguous_reason(target) {
+        return Ok(
+            json!({"ok": false, "error": format!("{reason}; open a new terminal window instead"), "text": text}),
+        );
+    }
     if target.get("kind").and_then(Value::as_str) != Some("terminal")
         && text.chars().any(|character| character.is_control())
     {
@@ -269,6 +294,9 @@ pub(super) fn run_paste(
         .unwrap_or("none")
     {
         "herdr" if !text_field(terminal, "pane_id").is_empty() => {
+            if let Err(reason) = revalidate_title_target(target) {
+                return Ok(json!({"ok": false, "error": reason, "text": text}));
+            }
             let (ok, _, error) = herdr_call(
                 runner,
                 &["pane", "send-text", &text_field(terminal, "pane_id"), &text],
