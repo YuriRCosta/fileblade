@@ -9,8 +9,8 @@ pub fn hover_target(blade_titles: &[String]) -> Value {
         Ok(value) => value,
         Err(error) => return json!({"ok": false, "error": error.to_string()}),
     };
-    let workspace_id = match hypr_query("activeworkspace") {
-        Ok(value) => field_i64(&value, "id"),
+    let workspace_id = match workspace_visible_at_point(current.0, current.1) {
+        Ok(value) => value,
         Err(error) => return json!({"ok": false, "error": error.to_string()}),
     };
     match window_under_cursor(&clients, current.0, current.1, workspace_id, blade_titles) {

@@ -14,10 +14,12 @@ pub fn focus_window(address: &str) -> Value {
                 json!({"ok": true, "focused": false, "address": address, "reason": "window is gone"}),
             );
         }
-        let active_workspace = hypr_query("activeworkspace")?;
-        if client_workspace_id(client) != field_i64(&active_workspace, "id") {
+        let visible =
+            visible_workspace_for_monitor(&monitors_list()?, field_i64(client, "monitor"))
+                .unwrap_or(field_i64(&hypr_query("activeworkspace")?, "id"));
+        if client_workspace_id(client) != visible {
             return Ok(
-                json!({"ok": true, "focused": false, "address": address, "reason": "window left the active workspace"}),
+                json!({"ok": true, "focused": false, "address": address, "reason": "window is not on its monitor's visible workspace"}),
             );
         }
         if field_str(&active_window(), "address") == address {

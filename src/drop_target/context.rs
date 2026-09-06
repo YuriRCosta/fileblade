@@ -60,11 +60,7 @@ pub(super) fn target_at(x: i64, y: i64, blade_titles: &[String]) -> AppResult<Va
     if !has_window_at_point(&clients, x, y, blade_titles) {
         return Ok(classify_target(None, &[]));
     }
-    let workspace = hypr_query("activeworkspace")?;
-    let workspace_id = workspace
-        .get("id")
-        .and_then(Value::as_i64)
-        .unwrap_or(-10_000);
+    let workspace_id = crate::hyprland::workspace_visible_at_point(x, y)?;
     let client = window_under_cursor(&clients, x, y, workspace_id, blade_titles);
     let processes = client
         .as_ref()
