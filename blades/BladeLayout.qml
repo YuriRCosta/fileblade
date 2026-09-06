@@ -59,6 +59,8 @@ Item {
     openedOn = next
   }
 
+  property string lastFocusedMonitorName: ""
+
   function adoptInvocationScreens() {
     var next = { left: openedOn.left, right: openedOn.right }
     var changed = false
@@ -71,9 +73,14 @@ Item {
     if (changed) openedOn = next
   }
 
-  onFocusedMonitorNameChanged: adoptInvocationScreens()
+  onFocusedMonitorNameChanged: {
+    var previous = lastFocusedMonitorName
+    lastFocusedMonitorName = focusedMonitorName
+    if (previous === "" && focusedMonitorName !== "") adoptInvocationScreens()
+  }
   onMonitorModeChanged: adoptInvocationScreens()
   onMonitorLockChanged: adoptInvocationScreens()
+  onLayoutChanged: adoptInvocationScreens()
 
   function normalizeMode(value) {
     return String(value || "").toLowerCase() === "window" ? "window" : "docked"

@@ -89,8 +89,7 @@ QtObject {
   }
 
   function setRoot(path: string): string {
-    var target = service.referenceScreen(null)
-    return service.navigateToLocation(path, target, "browse")
+    return service.navigateToLocation(path, service.preferredScreen(), "browse")
   }
 
   function up(): string {
@@ -684,24 +683,19 @@ QtObject {
   }
 
   function focusBlade(edge: string): string {
-    var target = service.referenceScreen(null)
-    bladeHost.focusBlade(edge, target, -1, "", true)
-    return "focused"
+    return bladeHost.focusBlade(edge, bladeHost.preferredScreen(edge), -1, "", true) ? "focused" : "no-screen"
   }
 
   function toggleBladeFocus(edge: string): string {
-    var target = service.referenceScreen(null)
-    return bladeHost.toggleBladeFocus(edge, target)
+    return bladeHost.toggleBladeFocus(edge, bladeHost.preferredScreen(edge))
   }
 
   function focusLeft(): string {
-    var target = service.referenceScreen(null)
-    return bladeHost.toggleBladeFocus("left", target)
+    return bladeHost.toggleBladeFocus("left", bladeHost.preferredScreen("left"))
   }
 
   function focusRight(): string {
-    var target = service.referenceScreen(null)
-    return bladeHost.toggleBladeFocus("right", target)
+    return bladeHost.toggleBladeFocus("right", bladeHost.preferredScreen("right"))
   }
 
   function openBlade(edge: string): string {
@@ -884,31 +878,27 @@ QtObject {
   }
 
   function focusTree(): string {
-    var target = service.referenceScreen(null)
-    service.focusTree(target)
+    service.focusTree(null)
     return "ok"
   }
 
   function focusProperties(): string {
-    var target = service.referenceScreen(null)
-    service.focusProperties(target)
+    service.focusProperties(null)
     return "ok"
   }
 
   function focusSearch(): string {
-    var target = service.referenceScreen(null)
-    service.focusSearch(target)
+    service.focusSearch(null)
     return "ok"
   }
 
   function focusLocation(): string {
-    var target = service.referenceScreen(null)
-    service.focusLocation(target)
+    service.focusLocation(null)
     return "ok"
   }
 
   function navigate(path: string): string {
-    var target = service.referenceScreen(null)
+    var target = service.preferredScreen()
     return service.navigateToLocation(path, target, "browse")
   }
 
