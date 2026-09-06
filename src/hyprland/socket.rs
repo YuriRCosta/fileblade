@@ -256,6 +256,73 @@ pub(super) fn field_bool(value: &Value, key: &str, default: bool) -> bool {
     value.get(key).and_then(Value::as_bool).unwrap_or(default)
 }
 
+pub fn monitor_logical_rect(monitor: &Value) -> (i64, i64, i64, i64) {
+    let scale = monitor
+        .get("scale")
+        .and_then(Value::as_f64)
+        .filter(|scale| *scale > 0.0)
+        .unwrap_or(1.0);
+    let transform = field_i64(monitor, "transform");
+    let (mut width, mut height) = (field_i64(monitor, "width"), field_i64(monitor, "height"));
+    if transform % 2 == 1 {
+        std::mem::swap(&mut width, &mut height);
+    }
+    let logical = |pixels: i64| ((pixels as f64) / scale).round() as i64;
+    (
+        field_i64(monitor, "x"),
+        field_i64(monitor, "y"),
+        logical(width),
+        logical(height),
+    )
+}
+
+pub fn monitor_contains(monitor: &Value, x: i64, y: i64) -> bool {
+    let (left, top, width, height) = monitor_logical_rect(monitor);
+    width > 0 && height > 0 && x >= left && x < left + width && y >= top && y < top + height
+}
+
+pub fn visible_workspace_of(monitor: &Value) -> i64 {
+    let special = monitor
+        .get("specialWorkspace")
+        .map(|workspace| field_i64(workspace, "id"))
+        .unwrap_or(0);
+    if special != 0 {
+        return special;
+    }
+    monitor
+        .get("activeWorkspace")
+        .map(|workspace| field_i64(workspace, "id"))
+        .unwrap_or(-10_000)
+}
+
+pub fn visible_workspace_at(monitors: &[Value], x: i64, y: i64) -> Option<i64> {
+    monitors
+        .iter()
+        .find(|monitor| monitor_contains(monitor, x, y))
+        .map(visible_workspace_of)
+}
+
+pub fn visible_workspace_for_monitor(monitors: &[Value], monitor_id: i64) -> Option<i64> {
+    monitors
+        .iter()
+        .find(|monitor| field_i64(monitor, "id") == monitor_id)
+        .map(visible_workspace_of)
+}
+
+pub(super) fn monitors_list() -> AppResult<Vec<Value>> {
+    Ok(hypr_query("monitors")?
+        .as_array()
+        .cloned()
+        .unwrap_or_default())
+}
+
+pub fn workspace_visible_at_point(x: i64, y: i64) -> AppResult<i64> {
+    if let Some(id) = visible_workspace_at(&monitors_list()?, x, y) {
+        return Ok(id);
+    }
+    Ok(field_i64(&hypr_query("activeworkspace")?, "id"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
