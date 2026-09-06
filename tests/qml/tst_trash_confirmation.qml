@@ -85,13 +85,15 @@ TestCase {
     compare(controller.trashed, [])
   }
 
-  function test_hidden_pane_drops_its_old_prompt_when_a_newer_request_arrives() {
+  function test_hiding_the_prompt_cancels_it_and_a_newer_request_starts_clean() {
     controller.request(["/a/bravo.txt"])
     left.paneVisible = false
-    compare(leftDialog.opened, true)
-    controller.request(["/a/delta.txt"])
     compare(leftDialog.opened, false, "the hidden pane must not keep the bravo prompt")
+    compare(controller.pendingTrashPaths, [], "hiding the prompt cancels the bravo request")
+    compare(rightDialog.opened, false)
+    controller.request(["/a/delta.txt"])
     compare(rightDialog.message, "trash /a/delta.txt")
+    compare(leftDialog.opened, false)
     left.paneVisible = true
     compare(leftDialog.opened, false)
     compare(right.resolve("trash"), true)
@@ -111,6 +113,28 @@ TestCase {
     compare(controller.pendingTrashPaths, ["/a/delta.txt"])
     compare(left.resolve("cancel"), false)
     compare(controller.pendingTrashPaths, ["/a/delta.txt"])
+  }
+
+  function test_hiding_the_pane_that_shows_the_current_prompt_cancels_the_request() {
+    right.paneVisible = false
+    controller.request(["/a/foxtrot.txt"])
+    compare(leftDialog.opened, true)
+    left.paneVisible = false
+    compare(leftDialog.opened, false)
+    compare(controller.pendingTrashPaths, [], "hiding the only visible prompt cancels the request")
+    compare(controller.trashed, [])
+  }
+
+  function test_hiding_a_pane_with_a_stale_prompt_only_closes_it() {
+    controller.request(["/a/golf.txt"])
+    var stale = left.requestSerial
+    controller.trashConfirmationSerial++
+    controller.pendingTrashPaths = ["/a/hotel.txt"]
+    leftDialog.opened = true
+    left.requestSerial = stale
+    left.paneVisible = false
+    compare(leftDialog.opened, false)
+    compare(controller.pendingTrashPaths, ["/a/hotel.txt"], "a stale prompt never cancels the live request")
   }
 
   function test_hidden_pane_never_opens_but_visible_pane_does() {

@@ -211,6 +211,7 @@ QtObject {
       monitorLock: bladeHost.monitorLock,
       focusedMonitor: bladeHost.focusedMonitorName,
       bladeScreens: { left: bladeHost.bladeScreenName("left"), right: bladeHost.bladeScreenName("right") },
+      pendingTrashCount: Array.isArray(service.pendingTrashPaths) ? service.pendingTrashPaths.length : 0,
       serviceGeneration: service.serviceGeneration,
       pluginWatcherFiltered: service.pluginWatcherFiltered,
       pluginWatcherStopPending: service.pluginWatcherStopPending,
