@@ -22,8 +22,9 @@ PanelWindow {
   readonly property bool surfaceActive: panelEnabled && !windowMode
   readonly property bool bladeOpen: panelEnabled && !windowMode && !!blade.open
   property int liveWidth: -1
-  readonly property int bladeWidth: liveWidth > 0 ? liveWidth : (Number(blade.width) || 380)
   readonly property int surfaceWidth: host.maximumWidth(screen ? screen.width : 0)
+  readonly property int storedWidth: Number(blade.width) || 380
+  readonly property int bladeWidth: Math.max(host.minimumWidth, Math.min(liveWidth > 0 ? liveWidth : storedWidth, surfaceWidth))
   readonly property var slots: Array.isArray(blade.slots) ? blade.slots : []
   readonly property bool bladeFocused: bladeOpen && !keyboardFocusReleased && scope.activeFocus
   property bool shortcutsOpen: false
