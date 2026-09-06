@@ -15,3 +15,5 @@ This file was written by an agent.
 - Resolve hover, drops, and explicit window focus across visible monitors.
 - Keep directional focus routing on each blade's assigned monitor.
 - Open undocked blades on their monitor, preserving ordinary window movement.
+- Recognize Foot server windows as terminal targets.
+- Prevent terminal actions from reaching another shared window.
