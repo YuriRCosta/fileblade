@@ -236,11 +236,18 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
     ));
     assert!(tab_bar.contains("bar.slot.requestCloseTab"));
     let slot = text(&root.join("blades/BladeSlot.qml"));
-    assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index)"));
-    assert!(slot.contains("if (tabs.length > 1 && TabIdentity.matches(tabs, target)) host.removeTab(edge, slotIndex, index)"));
-    assert!(slot.contains(
-        "if (!closeTabDialog.opened || TabIdentity.matches(tabs, pendingCloseTarget)) return"
+    assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index, slotId)"));
+    assert!(slot.contains("if (tabs.length > 1 && TabIdentity.matches(tabs, slotId, target)) host.removeTab(edge, slotIndex, index)"));
+    assert!(slot.contains("onTabsChanged: dropStaleCloseTab()"));
+    assert!(slot.contains("onSlotIdChanged: dropStaleCloseTab()"));
+    let location = text(&root.join("controllers/LocationController.qml"));
+    assert!(location.contains(
+        "var late = String(request.monitor || \"\") !== service.bladeHost.focusedMonitorName"
     ));
+    let navigation = text(&root.join("controllers/NavigationController.qml"));
+    assert!(
+        navigation.contains("var screen = controller.focusTarget || service.preferredScreen()")
+    );
     assert!(tab_bar.contains("closePointer.containsMouse ? Color.urgent"));
     assert!(tab_bar.contains("last.width + Math.round(tabRow.spacing / 2)"));
     assert!(!tab_bar.contains(
