@@ -149,6 +149,7 @@ Item {
   signal locationValidationFinished(var targetScreen, bool success, string path, string error)
   signal trashConfirmationRequested(var paths)
   property var pendingTrashPaths: []
+  property int trashConfirmationSerial: 0
   function resolveTrashConfirmation(confirm) {
     var paths = Array.isArray(pendingTrashPaths) ? pendingTrashPaths.slice() : []
     pendingTrashPaths = []
