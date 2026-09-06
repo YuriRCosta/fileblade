@@ -577,6 +577,10 @@ Automation for this section is pending.
      blades only ever appear on that monitor and the shortcuts act there
      wherever I am. My layout, notes and selection are the same on every
      monitor. See section 34 for the two-monitor checks.
+179b. **E-21-10b** If a monitor is unplugged, a blade that was invoked or
+     locked there stays hidden until I close and reopen it or the monitor
+     returns; a menu, drop wheel, drag or keyboard focus that lived on it is
+     cancelled rather than moved; my lock setting is kept.
 179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
      smaller monitor can show: on that monitor the blade renders and reserves
      at most its own screen's limit, and my stored width is left alone.

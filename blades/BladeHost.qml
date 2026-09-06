@@ -220,6 +220,26 @@ Item {
   function layoutDocument() { return bladeLayout.layoutDocument() }
   function activeSlot(edge) { return bladeLayout.activeSlot(edge) }
   function panelActiveFor(panelScreen, edge) { return bladeLayout.panelActiveFor(panelScreen, edge) }
+
+  function screenAlive(candidate) {
+    if (!candidate) return true
+    for (var i = 0; i < Quickshell.screens.length; i++) if (Quickshell.screens[i] === candidate) return true
+    return false
+  }
+
+  function validateScreenOwners() {
+    if (!screenAlive(focusController.focusedScreen)) focusController.dropOwnership()
+    if (dragActive && !screenAlive(dragController.dragScreen)) endSlotDrag(false)
+    if (!service) return
+    if (service.actionMenuOpen && !screenAlive(service.actionMenuScreen)) service.closeActionMenu()
+    if (service.dropWheelOpen && !screenAlive(service.dropWheel.wheelScreen)) service.dropWheel.close()
+      if (service.dropWheel.dragActive && !screenAlive(service.dropWheel.dragScreen)) service.dropWheel.cancelDrag()
+  }
+
+  Connections {
+    target: Quickshell
+    function onScreensChanged() { host.validateScreenOwners() }
+  }
   function screenNamed(name) { return bladeLayout.screenNamed(name) }
   function preferredScreen(edge) { return bladeLayout.preferredScreen(edge) }
   function referenceScreen(candidate, edge) { return bladeLayout.referenceScreen(candidate, edge) }

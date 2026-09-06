@@ -677,6 +677,8 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     assert!(layout.contains(
         "if (previous === \"\" && focusedMonitorName !== \"\") adoptInvocationScreens()"
     ));
+    assert!(host_text.contains("function validateScreenOwners()"));
+    assert!(host_text.contains("function onScreensChanged() { host.validateScreenOwners() }"));
     let wheel = text(&root.join("controllers/DropWheelController.qml"));
     assert!(wheel.contains("wheelScreen = targetScreen || service.referenceScreen(null)"));
     assert!(focus.contains("function bladePointerExited(edge, screen)"));
