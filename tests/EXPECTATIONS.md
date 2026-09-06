@@ -878,8 +878,9 @@ Covered by `tests/vm/expectations/26-hunk-review.sh`.
 `tests/vm/expectations/34-monitors.sh` uses two outputs in a disposable VM,
 including fractional scaling, a gap, a negative origin, and disconnection.
 It compares per-output layers, reserved space, real keyboard input and
-screenshots. Dialog, Settings and delayed-focus checks are marked pending
-until separately exercised.
+screenshots, including trash-request cancellation when its owner retires.
+Settings pointer checks are exercised separately; delayed-focus and unknown
+startup targets also have deterministic QML coverage.
 
 - **E-34-01** With Active selected, a blade opens on the monitor where I invoke
   it and stays there while I work on another monitor. Only its own monitor
