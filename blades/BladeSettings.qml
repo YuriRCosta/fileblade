@@ -718,11 +718,12 @@ Item {
             onToggled: root.host.setAnimateBlades(!root.host.animateBlades)
           }
 
-          PluginUi.ChoiceRow {
+          PluginUi.DropdownRow {
             width: parent.width
             visible: general.monitorsShown
             glyph: "󰍹"
             label: "Monitors"
+            prompt: "Find monitor…"
             options: MonitorMode.choices(root.host.screenNames)
             value: MonitorMode.choiceKey(root.host.monitorMode, root.host.monitorLock)
             onChosen: function(key) { var choice = MonitorMode.parseChoice(key); root.host.setMonitorMode(choice.mode, choice.lock) }

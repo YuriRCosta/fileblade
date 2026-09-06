@@ -1,0 +1,91 @@
+import QtQuick
+import qs.Commons
+
+Item {
+  id: row
+
+  property string label: ""
+  property string glyph: ""
+  property string heading: ""
+  property string prompt: "Type to filter, Enter picks"
+  property var options: []
+  property string value: ""
+  readonly property string currentLabel: {
+    for (var i = 0; i < options.length; i++) if (String(options[i].key) === value) return String(options[i].label)
+    return value
+  }
+
+  signal chosen(string key)
+
+  implicitHeight: Style.space(28)
+
+  function open() {
+    menu.rows = options.map(function(option) { return { key: String(option.key), label: String(option.label), checked: String(option.key) === row.value } })
+    menu.present()
+  }
+
+  Text {
+    textFormat: Text.PlainText
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.right: current.left
+    anchors.rightMargin: Style.space(8)
+    text: (row.glyph !== "" ? row.glyph + "  " : "") + row.label
+    color: Color.bar.text
+    elide: Text.ElideRight
+    font.family: Style.font.family
+    font.pixelSize: Style.font.bodySmall
+  }
+
+  Rectangle {
+    id: current
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    width: currentLabelText.implicitWidth + chevron.implicitWidth + Style.space(18)
+    height: Style.space(22)
+    radius: Style.space(4)
+    color: pointer.containsMouse || menu.visible ? Util.alpha(Color.accent, 0.22) : Util.alpha(Color.bar.text, 0.1)
+
+    Text {
+      id: currentLabelText
+      textFormat: Text.PlainText
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(7)
+      anchors.verticalCenter: parent.verticalCenter
+      text: row.currentLabel
+      color: Color.bar.text
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+
+    Text {
+      id: chevron
+      textFormat: Text.PlainText
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      text: "󰅀"
+      color: Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+
+    MouseArea {
+      id: pointer
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: row.open()
+    }
+  }
+
+  OptionPopup {
+    id: menu
+    x: Math.max(0, row.width - menuWidth)
+    y: row.height + Style.space(2)
+    menuWidth: Style.space(220)
+    heading: row.heading !== "" ? row.heading : row.label
+    prompt: row.prompt
+    onPicked: function(key) { row.chosen(key) }
+  }
+}
