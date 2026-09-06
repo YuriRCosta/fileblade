@@ -849,6 +849,15 @@ shared there.
      the installed extensions cannot be added to the right blade within thirty
      seconds, the tab names the ones still missing and Install adds them again.
 
+This file was written by an agent.
+
+**E-29-06** If I enable Memory, Skills, MCP, Hooks, or a generated extension
+before installing FileBlade, one pop-up lists the waiting extensions and shows
+the FileBlade repository address. There is no Install button, and Enter does
+nothing. Escape or the close button dismisses the pop-up. If FileBlade is already
+installed but disabled, Enable activates that local installation and restarts the
+shell. Once FileBlade is enabled, the pop-up disappears.
+
 ## 30. Configurable tree keys
 
 `tests/vm/expectations/30-keybindings.sh`
