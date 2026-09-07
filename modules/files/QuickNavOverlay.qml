@@ -5,6 +5,7 @@ import "../../ui" as PluginUi
 import "../../lib/Highlight.js" as Highlight
 import "../../lib/FileIcons.js" as FileIcons
 import "../../lib/KeyRouter.js" as KeyRouter
+import "../../theme"
 
 FocusScope {
   id: overlay
@@ -167,7 +168,7 @@ FocusScope {
         text: String(overlay.channelInfo.title || overlay.channelInfo.name || "").toUpperCase()
         color: Color.bar.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
         font.weight: Font.DemiBold
         font.letterSpacing: 0.6
       }
@@ -179,7 +180,7 @@ FocusScope {
         text: String(overlay.channelInfo.note || "")
         color: overlay.secondaryTextColor
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
     }
 
@@ -205,7 +206,7 @@ FocusScope {
         selectionColor: Util.alpha(Color.accent, 0.38)
         selectedTextColor: Color.bar.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: Typography.body
 
         background: Rectangle {
           radius: Math.min(Style.cornerRadius, Style.space(4))
@@ -222,7 +223,7 @@ FocusScope {
           text: ""
           color: input.activeFocus ? Color.accent : overlay.secondaryTextColor
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
         }
 
         onTextEdited: overlay.edited(text)
@@ -274,7 +275,7 @@ FocusScope {
       color: overlay.controller.searchError ? Color.urgent : overlay.secondaryTextColor
       elide: Text.ElideRight
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
 
     ListView {
@@ -325,7 +326,7 @@ FocusScope {
           color: (row.isDir && overlay.controller.folderColor(row.path)) || (row.isDir || row.kind === "Action" ? Color.accent : overlay.secondaryTextColor)
           horizontalAlignment: Text.AlignHCenter
           font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.pixelSize: Typography.body
         }
 
         Column {
@@ -343,7 +344,7 @@ FocusScope {
             color: row.current ? Color.accent : Color.bar.text
             elide: Text.ElideRight
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Typography.body
             font.weight: row.current ? Font.DemiBold : Font.Normal
           }
 
@@ -354,7 +355,7 @@ FocusScope {
             color: overlay.secondaryTextColor
             elide: Text.ElideMiddle
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Typography.caption
           }
         }
 
