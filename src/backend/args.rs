@@ -360,12 +360,6 @@ pub struct HistoryStepArgs {
 }
 
 #[derive(Clone, Debug, Args)]
-pub struct PluginAddArgs {
-    #[arg(long)]
-    pub url: String,
-}
-
-#[derive(Clone, Debug, Args)]
 pub struct SetDefaultArgs {
     #[arg(long)]
     pub mime: String,

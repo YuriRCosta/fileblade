@@ -85,7 +85,6 @@ pub enum BackendCommand {
     Undo(HistoryStepArgs),
     Redo(HistoryStepArgs),
     SetDefault(SetDefaultArgs),
-    PluginAdd(PluginAddArgs),
     PluginInstall,
     PluginInstallStatus,
     HyprOption(HyprOptionArgs),
@@ -139,7 +138,6 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::BinRemove(_)
             | BackendCommand::BinPurge(_)
             | BackendCommand::ArchiveExtract(_)
-            | BackendCommand::PluginAdd(_)
             | BackendCommand::PluginInstall
             | BackendCommand::MountVolume(_)
             | BackendCommand::UnmountVolume(_)
@@ -409,7 +407,6 @@ fn dispatch_command(
         BackendCommand::Redo(options) => {
             crate::journal::redo(options.drop, options.force, cancelled)
         }
-        BackendCommand::PluginAdd(options) => crate::plugin_install::plugin_add(&options.url),
         BackendCommand::PluginInstall => crate::plugin_install::install()?,
         BackendCommand::PluginInstallStatus => crate::plugin_install::status()?,
         BackendCommand::SetDefault(options) => crate::operations::set_default_application(

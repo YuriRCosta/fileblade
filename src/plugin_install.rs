@@ -2,56 +2,38 @@ use crate::command::{CommandSpec, which};
 use serde_json::{Value, json};
 use std::time::Duration;
 
-pub const ALLOWED_URLS: &[&str] = &[
-    "https://github.com/data-goblin/fileblade-memory.git",
-    "https://github.com/data-goblin/fileblade-skills.git",
-    "https://github.com/data-goblin/fileblade-mcp.git",
-    "https://github.com/data-goblin/fileblade-hooks.git",
+pub struct Extension {
+    pub url: &'static str,
+    pub commit: &'static str,
+}
+
+pub const EXTENSIONS: &[Extension] = &[
+    Extension {
+        url: "https://github.com/data-goblin/fileblade-memory.git",
+        commit: "1af97e1a34c71375aef1a8362b7e699ac13baa86",
+    },
+    Extension {
+        url: "https://github.com/data-goblin/fileblade-skills.git",
+        commit: "27f144884aca3e832cf298f6bf2abb459ca11635",
+    },
+    Extension {
+        url: "https://github.com/data-goblin/fileblade-mcp.git",
+        commit: "f71bbe5cffc21da5d60159d4842bc2726c740306",
+    },
+    Extension {
+        url: "https://github.com/data-goblin/fileblade-hooks.git",
+        commit: "05a64c9be745757924158b2b0ac27aab73859302",
+    },
 ];
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(180);
 const OUTPUT_LIMIT: usize = 64 * 1024;
 
 pub fn allowed(url: &str) -> bool {
-    ALLOWED_URLS.contains(&url)
+    pinned(url).is_some()
 }
 
-pub fn plugin_add(url: &str) -> Value {
-    if !allowed(url) {
-        return json!({
-            "ok": false,
-            "url": url,
-            "message": "only the FileBlade example extensions can be installed from the Welcome tab",
-        });
-    }
-    let Some(program) = which("omarchy-plugin-add") else {
-        return json!({
-            "ok": false,
-            "url": url,
-            "message": "omarchy-plugin-add is not on PATH",
-        });
-    };
-    let output = CommandSpec::new(program)
-        .args([url, "--yes", "--enable"])
-        .timeout(INSTALL_TIMEOUT)
-        .limits(OUTPUT_LIMIT, OUTPUT_LIMIT)
-        .retain_tail(true)
-        .run();
-    match output {
-        Ok(result) => {
-            let stderr = String::from_utf8_lossy(&result.stderr).trim().to_string();
-            let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
-            let already =
-                stderr.contains("already installed") || stderr.contains("is already used by");
-            json!({
-                "ok": result.status.success() || already,
-                "url": url,
-                "alreadyInstalled": already,
-                "message": if result.status.success() || already { "" } else { stderr.lines().last().unwrap_or("install failed") },
-                "output": stdout.lines().rev().take(20).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"),
-            })
-        }
-        Err(error) => json!({ "ok": false, "url": url, "message": error.to_string() }),
-    }
+pub fn pinned(url: &str) -> Option<&'static Extension> {
+    EXTENSIONS.iter().find(|extension| extension.url == url)
 }
 
 fn progress_path() -> std::path::PathBuf {
@@ -83,7 +65,7 @@ pub fn install() -> crate::AppResult<Value> {
     };
     let mut progress = json!({
         "ok": true, "state": "running", "installed": 0,
-        "total": ALLOWED_URLS.len(), "message": "",
+        "total": EXTENSIONS.len(), "message": "",
     });
     let record = |progress: &Value| -> crate::AppResult<()> {
         crate::secure::write_private_atomic(&progress_path(), &serde_json::to_vec(progress)?)?;
@@ -102,15 +84,17 @@ pub fn install() -> crate::AppResult<Value> {
     let stage_root = stage_root(&plugins);
     let _ = std::fs::remove_dir_all(&stage_root);
     let mut staged = Vec::new();
-    for (index, url) in ALLOWED_URLS.iter().enumerate() {
+    for (index, extension) in EXTENSIONS.iter().enumerate() {
+        let url = extension.url;
         progress["url"] = json!(url);
+        progress["commit"] = json!(extension.commit);
         progress["installed"] = json!(index);
         record(&progress)?;
         let id = extension_id(url);
         if plugins.join(&id).exists() {
             continue;
         }
-        match stage_extension(url, &id, &stage_root) {
+        match stage_extension(extension, &id, &stage_root) {
             Ok(path) => staged.push((id, path)),
             Err(error) => {
                 let _ = std::fs::remove_dir_all(&stage_root);
@@ -126,7 +110,7 @@ pub fn install() -> crate::AppResult<Value> {
         }
     }
     let _ = std::fs::remove_dir_all(&stage_root);
-    progress["installed"] = json!(ALLOWED_URLS.len());
+    progress["installed"] = json!(EXTENSIONS.len());
     record(&progress)?;
     if let Err(error) = enable_extensions(&plugins, &staged_ids) {
         return fail(progress, error);
@@ -153,11 +137,34 @@ fn stage_root(plugins: &std::path::Path) -> std::path::PathBuf {
         .join(".fileblade-extension-stage")
 }
 
+fn git_in(stage: &std::path::Path, arguments: &[&str]) -> Result<String, String> {
+    let git = which("git").ok_or("git is not on PATH")?;
+    let result = CommandSpec::new(git)
+        .args(arguments)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .cwd(stage)
+        .timeout(INSTALL_TIMEOUT)
+        .limits(OUTPUT_LIMIT, OUTPUT_LIMIT)
+        .retain_tail(true)
+        .run()
+        .map_err(|error| error.to_string())?;
+    if !result.status.success() {
+        return Err(String::from_utf8_lossy(&result.stderr)
+            .lines()
+            .last()
+            .unwrap_or("git command failed")
+            .to_string());
+    }
+    Ok(String::from_utf8_lossy(&result.stdout).trim().to_string())
+}
+
 fn stage_extension(
-    url: &str,
+    extension: &Extension,
     id: &str,
     stage_root: &std::path::Path,
 ) -> Result<std::path::PathBuf, String> {
+    let url = extension.url;
+    let commit = extension.commit;
     omarchy_command("omarchy-git-url-check", &[url])?;
     std::fs::create_dir_all(stage_root).map_err(|error| error.to_string())?;
     let stage = stage_root.join(id);
@@ -177,6 +184,19 @@ fn stage_extension(
             .last()
             .unwrap_or("git clone failed")
             .to_string());
+    }
+    git_in(
+        &stage,
+        &["rev-parse", "--verify", &format!("{commit}^{{commit}}")],
+    )
+    .map_err(|_| format!("{url} does not contain the reviewed commit {commit}"))?;
+    git_in(&stage, &["reset", "--hard", commit])
+        .map_err(|error| format!("could not check out {commit}: {error}"))?;
+    let head = git_in(&stage, &["rev-parse", "HEAD"])?;
+    if head != commit {
+        return Err(format!(
+            "{url} is at {head} instead of the reviewed commit {commit}"
+        ));
     }
     omarchy_command("omarchy-plugin-validate", &[&stage.to_string_lossy()])?;
     let stage = std::fs::canonicalize(&stage).map_err(|error| error.to_string())?;
@@ -209,7 +229,10 @@ fn enabled_ids() -> Result<std::collections::HashMap<String, bool>, String> {
 }
 
 fn enable_extensions(plugins: &std::path::Path, staged: &[String]) -> Result<(), String> {
-    let ids: Vec<String> = ALLOWED_URLS.iter().map(|url| extension_id(url)).collect();
+    let ids: Vec<String> = EXTENSIONS
+        .iter()
+        .map(|extension| extension_id(extension.url))
+        .collect();
     for id in &ids {
         let target = std::fs::canonicalize(plugins.join(id)).map_err(|error| error.to_string())?;
         if !staged.contains(id) {

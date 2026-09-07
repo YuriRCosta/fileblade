@@ -790,8 +790,9 @@ Covered by `tests/vm/expectations/26-hunk-review.sh`.
      Each extension name is a source link, usable by mouse or keyboard, that
      opens its GitHub repository without starting installation.
 247. **E-29-02** If I click Install in the Welcome tab, the four example
-     extensions are installed and enabled directly from GitHub with Omarchy's
-     plugin checks, without a marketplace listing or terminal confirmation,
+     extensions are installed and enabled directly from GitHub at the exact
+     versions this FileBlade was released with, with Omarchy's plugin checks
+     and without a marketplace listing or terminal confirmation,
      the shell reloads once rather than once per extension, and the Welcome
      tab closes by itself. Installation keeps going through
      plugin reloads, with progress restored when FileBlade reappears. A pulsing
@@ -810,7 +811,9 @@ Covered by `tests/vm/expectations/26-hunk-review.sh`.
      back on later launches or after a layout reset, and extensions that are
      already installed are skipped rather than reinstalled.
 250. **E-29-05** If an install fails, the Welcome tab stays open and shows which
-     extension failed so I can retry. Retrying enables an extension left disabled
+     extension failed so I can retry. If a repository no longer offers the
+     version this FileBlade was built against, nothing is installed from it and
+     the tab says so. Retrying enables an extension left disabled
      by an interrupted install and continues with the remaining extensions. If
      the installed extensions cannot be added to the right blade within thirty
      seconds, the tab names the ones still missing and Install adds them again.

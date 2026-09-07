@@ -100,7 +100,14 @@ only after an explicit Install click. Omarchy reloads all plugins during
 installation, so the operation must outlive the resident backend. A private
 lock prevents overlapping runs; `extension-install.json` in FileBlade state
 records progress. Welcome reads `plugin-install-status` once on load and once
-per second while installation runs. Omarchy's plugin watcher reloads every
+per second while installation runs. Each extension is pinned: `EXTENSIONS` in
+`src/plugin_install.rs` carries a full commit beside every repository URL, the
+clone is reset to that commit and refused unless `git rev-parse HEAD` matches
+it, so a branch that moves after review cannot change the installed bytes and
+the progress record names the commit being installed. Moving a pin is a
+FileBlade change; an installed extension updates normally through
+`omarchy plugin update`. There is no other install path: the backend has no
+command that adds a plugin from a URL. Omarchy's plugin watcher reloads every
 plugin on any change under the plugins directory, so the installer clones and
 validates all four repositories in a sibling staging directory first
 (`omarchy-git-url-check`, `git clone`, `omarchy-plugin-validate`, manifest ID

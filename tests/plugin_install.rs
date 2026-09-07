@@ -1,7 +1,29 @@
 #[test]
-fn only_the_example_extensions_are_installable() {
-    for url in fileblade::plugin_install::ALLOWED_URLS {
-        assert!(fileblade::plugin_install::allowed(url));
+fn every_example_extension_is_pinned_to_a_reviewed_commit() {
+    for extension in fileblade::plugin_install::EXTENSIONS {
+        assert!(fileblade::plugin_install::allowed(extension.url));
+        assert_eq!(
+            extension.commit.len(),
+            40,
+            "{} needs a full commit, not {}",
+            extension.url,
+            extension.commit
+        );
+        assert!(
+            extension
+                .commit
+                .chars()
+                .all(|character| character.is_ascii_hexdigit()),
+            "{} has a malformed commit",
+            extension.url
+        );
+        assert!(
+            extension
+                .url
+                .starts_with("https://github.com/data-goblin/fileblade-"),
+            "{} is not a FileBlade example extension",
+            extension.url
+        );
     }
     assert!(!fileblade::plugin_install::allowed(
         "https://github.com/data-goblin/fileblade-memory"
@@ -9,46 +31,7 @@ fn only_the_example_extensions_are_installable() {
     assert!(!fileblade::plugin_install::allowed(
         "https://example.invalid/evil.git"
     ));
-    let refused = fileblade::plugin_install::plugin_add("https://example.invalid/evil.git");
-    assert_eq!(refused["ok"], false);
-    assert!(
-        refused["message"]
-            .as_str()
-            .unwrap_or("")
-            .contains("Welcome tab")
-    );
-}
-
-#[test]
-fn welcome_install_confirms_and_enables_without_a_terminal() {
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use std::process::Command;
-
-    let temporary = tempfile::tempdir().unwrap();
-    let program = temporary.path().join("omarchy-plugin-add");
-    fs::write(
-        &program,
-        "#!/bin/sh\n[ ! -t 0 ] || exit 9\n[ \"$1\" = https://github.com/data-goblin/fileblade-memory.git ] || exit 10\n[ \"$2\" = --yes ] || exit 11\n[ \"$3\" = --enable ] || exit 12\n[ \"$#\" = 3 ] || exit 13\nprintf 'Installed and enabled\\n'\n",
-    )
-    .unwrap();
-    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
-        .args([
-            "_backend",
-            "plugin-add",
-            "--url",
-            fileblade::plugin_install::ALLOWED_URLS[0],
-        ])
-        .env("PATH", temporary.path())
-        .env("HOME", temporary.path())
-        .env("XDG_STATE_HOME", temporary.path())
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(result["ok"], true, "{result}");
-    assert_eq!(result["output"], "Installed and enabled");
+    assert!(fileblade::plugin_install::pinned("https://example.invalid/evil.git").is_none());
 }
 
 fn install_mock(scripts: &std::path::Path) {
@@ -63,16 +46,35 @@ plugins.mkdir(parents=True, exist_ok=True)
 with (home / 'calls').open('a') as log:
     log.write(' '.join([verb] + sys.argv[1:]) + '\n')
 if verb == 'git':
-    assert sys.argv[1:3] == ['clone', '--'], sys.argv
-    url, dest = sys.argv[3], pathlib.Path(sys.argv[4])
-    name = url.split('/')[-1].removesuffix('.git')
-    if name == 'fileblade-mcp' and not (home / 'network-restored').exists():
-        print('network unavailable', file=sys.stderr)
-        sys.exit(128)
-    present = sorted(p.name for p in plugins.iterdir() if p.name.startswith('data-goblin.'))
-    (home / 'present-at-clone').open('a').write(name + ' ' + ','.join(present) + '\n')
-    dest.mkdir(parents=True)
-    (dest / 'manifest.json').write_text(json.dumps({'id': 'data-goblin.' + name}))
+    if sys.argv[1:3] == ['clone', '--']:
+        url, dest = sys.argv[3], pathlib.Path(sys.argv[4])
+        name = url.split('/')[-1].removesuffix('.git')
+        if name == 'fileblade-mcp' and not (home / 'network-restored').exists():
+            print('network unavailable', file=sys.stderr)
+            sys.exit(128)
+        present = sorted(p.name for p in plugins.iterdir() if p.name.startswith('data-goblin.'))
+        (home / 'present-at-clone').open('a').write(name + ' ' + ','.join(present) + '\n')
+        dest.mkdir(parents=True)
+        (dest / 'manifest.json').write_text(json.dumps({'id': 'data-goblin.' + name}))
+        head = (home / 'branch-head').read_text().strip() if (home / 'branch-head').exists() else 'f' * 40
+        (dest / '.head').write_text(head)
+        (dest / '.available').write_text((home / 'available-commits').read_text() if (home / 'available-commits').exists() else '')
+        sys.exit(0)
+    here = pathlib.Path.cwd()
+    available = (here / '.available').read_text().split() if (here / '.available').exists() else []
+    if sys.argv[1:3] == ['rev-parse', '--verify']:
+        wanted = sys.argv[3].removesuffix('^{commit}')
+        if wanted not in available:
+            print('bad revision', file=sys.stderr)
+            sys.exit(128)
+        print(wanted)
+    elif sys.argv[1:3] == ['reset', '--hard']:
+        (here / '.head').write_text(sys.argv[3])
+    elif sys.argv[1:] == ['rev-parse', 'HEAD']:
+        print((here / '.head').read_text().strip())
+    else:
+        print('unexpected git call ' + ' '.join(sys.argv[1:]), file=sys.stderr)
+        sys.exit(2)
 elif verb == 'omarchy-git-url-check':
     assert sys.argv[1].startswith('https://github.com/data-goblin/')
 elif verb == 'omarchy-plugin-validate':
@@ -93,6 +95,14 @@ elif verb == 'omarchy-plugin-list':
         fs::write(&path, mock).unwrap();
         fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
     }
+}
+
+fn publish_pins(home: &std::path::Path) {
+    let commits: Vec<&str> = fileblade::plugin_install::EXTENSIONS
+        .iter()
+        .map(|extension| extension.commit)
+        .collect();
+    std::fs::write(home.join("available-commits"), commits.join("\n")).unwrap();
 }
 
 fn run_backend(home: &std::path::Path, scripts: &std::path::Path, verb: &str) -> serde_json::Value {
@@ -119,6 +129,7 @@ fn install_stages_every_extension_before_any_reaches_the_plugins_directory() {
     let scripts = temporary.path().join("bin");
     fs::create_dir(&scripts).unwrap();
     install_mock(&scripts);
+    publish_pins(temporary.path());
     fs::write(temporary.path().join("network-restored"), "").unwrap();
     let result = run_backend(temporary.path(), &scripts, "plugin-install");
     assert_eq!(result["state"], "installed", "{result}");
@@ -169,6 +180,7 @@ fn batch_recovers_a_disabled_clone_and_retries_only_missing_repositories() {
     let scripts = temporary.path().join("bin");
     fs::create_dir(&scripts).unwrap();
     install_mock(&scripts);
+    publish_pins(temporary.path());
     let plugins = temporary.path().join(".config/omarchy/plugins");
     let memory = plugins.join("data-goblin.fileblade-memory");
     fs::create_dir_all(&memory).unwrap();
@@ -295,6 +307,7 @@ fn install_follows_a_symlinked_plugins_directory() {
     let scripts = temporary.path().join("bin");
     fs::create_dir(&scripts).unwrap();
     install_mock(&scripts);
+    publish_pins(temporary.path());
     fs::write(temporary.path().join("network-restored"), "").unwrap();
     let real = temporary.path().join("dotfiles/plugins");
     fs::create_dir_all(&real).unwrap();
@@ -316,34 +329,75 @@ fn install_follows_a_symlinked_plugins_directory() {
 }
 
 #[test]
-fn plugin_add_treats_an_existing_plugin_id_as_installed() {
+fn a_repository_that_moved_past_the_pinned_commit_is_refused() {
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use std::process::Command;
 
     let temporary = tempfile::tempdir().unwrap();
-    let program = temporary.path().join("omarchy-plugin-add");
+    let scripts = temporary.path().join("bin");
+    fs::create_dir(&scripts).unwrap();
+    install_mock(&scripts);
+    fs::write(temporary.path().join("network-restored"), "").unwrap();
+    let memory = &fileblade::plugin_install::EXTENSIONS[0];
+    let others: Vec<&str> = fileblade::plugin_install::EXTENSIONS
+        .iter()
+        .skip(1)
+        .map(|extension| extension.commit)
+        .collect();
     fs::write(
-        &program,
-        "#!/bin/sh\nprintf \"omarchy-plugin-add: plugin id 'data-goblin.fileblade-memory' is already used by /plugins/data-goblin.fileblade-memory/manifest.json\\n\" >&2\nexit 1\n",
+        temporary.path().join("available-commits"),
+        others.join("\n"),
     )
     .unwrap();
-    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
-        .args([
-            "_backend",
-            "plugin-add",
-            "--url",
-            fileblade::plugin_install::ALLOWED_URLS[0],
-        ])
-        .env("PATH", temporary.path())
-        .env("HOME", temporary.path())
-        .env("XDG_STATE_HOME", temporary.path())
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(result["ok"], true, "{result}");
-    assert_eq!(result["alreadyInstalled"], true);
-    assert_eq!(result["message"], "");
+    fs::write(temporary.path().join("branch-head"), "a".repeat(40)).unwrap();
+
+    let result = run_backend(temporary.path(), &scripts, "plugin-install");
+    assert_eq!(result["state"], "failed", "{result}");
+    let message = result["message"].as_str().unwrap();
+    assert!(
+        message.contains("does not contain the reviewed commit") && message.contains(memory.commit),
+        "{message}"
+    );
+    let plugins = temporary.path().join(".config/omarchy/plugins");
+    assert!(
+        !plugins.join("data-goblin.fileblade-memory").exists(),
+        "nothing may land in the plugins directory when the pin is missing"
+    );
+    assert!(
+        !temporary
+            .path()
+            .join(".config/omarchy/.fileblade-extension-stage")
+            .exists()
+    );
+}
+
+#[test]
+fn the_installed_tree_is_the_pinned_commit_not_the_branch_head() {
+    use std::fs;
+
+    let temporary = tempfile::tempdir().unwrap();
+    let scripts = temporary.path().join("bin");
+    fs::create_dir(&scripts).unwrap();
+    install_mock(&scripts);
+    publish_pins(temporary.path());
+    fs::write(temporary.path().join("network-restored"), "").unwrap();
+    fs::write(temporary.path().join("branch-head"), "b".repeat(40)).unwrap();
+
+    let result = run_backend(temporary.path(), &scripts, "plugin-install");
+    assert_eq!(result["state"], "installed", "{result}");
+    let plugins = temporary.path().join(".config/omarchy/plugins");
+    for extension in fileblade::plugin_install::EXTENSIONS {
+        let id = extension
+            .url
+            .rsplit('/')
+            .next()
+            .unwrap()
+            .trim_end_matches(".git");
+        let head = fs::read_to_string(plugins.join(format!("data-goblin.{id}/.head")).as_path())
+            .unwrap_or_default();
+        assert_eq!(
+            head.trim(),
+            extension.commit,
+            "{id} was left at the branch head instead of its pin"
+        );
+    }
 }
