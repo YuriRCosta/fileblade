@@ -52,6 +52,12 @@ Preserve unrelated changes and the project's design intent.
 - Kill stale processes (like OEVMs... when you finish)
 - Leave only task deliverables untracked. Do not commit scratch files or agent plans.
 
+## Omarchy plugin marketplace
+
+- Release from `main`; validation binds one exact commit.
+- Every release needs a Plugin verification issue naming that SHA.
+- Never post in marketplace threads; Kurt writes those.
+
 # PR / Issues
 
 - Ensure human users verify your PR / issue body content
