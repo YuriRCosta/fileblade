@@ -5,12 +5,14 @@ loads `Service.qml` once per enabled plugin; FileBlade instantiates
 `blades/Module.qml` once per slot, and potentially once per screen, that shows
 it. Nothing here runs unless FileBlade is installed and enabled.
 
+This file was written by an agent.
+
 ## Ownership
 
 ```yaml
 Service.qml:         the singleton provider. Shared scanners, caches, watchers and mutations belong here, with one teardown when the plugin is disabled or the shell reloads
 blades/Module.qml:   visual and lightweight. Binds to context.providerService, renders plain text, routes keys, keeps per-tab presentation state in context.state
-HostGuard.qml, .js:  shown only while FileBlade is missing or disabled; offers the install or enable command and restarts the shell
+HostGuard.qml, .js:  shown while FileBlade is missing or disabled; explains manual installation without downloading anything, or enables an installed host and restarts the shell
 manifest.json:       the module definition (id, entry, hostContract, settings schema); FileBlade reads it from the plugin registry
 scripts/:            fileblade-extension-image.py regenerates assets/fileblade-extension-logo.svg
 tests/:              tests/run is the local gate; tests/imports stubs qs.Commons so the module loads offline

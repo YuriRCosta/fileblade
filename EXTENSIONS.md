@@ -72,12 +72,15 @@ stages their public GitHub clones together, validates them with Omarchy, and
 enables them through Omarchy's CLI. Other extensions are installed through
 Omarchy; updates and removal also use Omarchy's commands.
 
-The reverse case is handled by the extension: each bundled satellite (skills,
-memory, hooks, mcp, git) carries a small host guard. When FileBlade is not
-installed or is disabled, the first enabled satellite shows one pop-up naming
-every waiting extension, with an Install (or Enable) button that runs the
-plugin install and restarts the shell. While FileBlade is present the guard
-draws nothing.
+This file was written by an agent.
+
+The four example extensions (skills, memory, hooks, mcp) and generated extension
+templates carry a small host guard. When FileBlade is missing or disabled, the
+first enabled extension shows one pop-up naming every waiting extension. A
+missing host shows an explanation and the repository URL with no install action;
+the guard never downloads FileBlade. An installed but disabled host offers Enable,
+which enables the local plugin and restarts the shell. While FileBlade is enabled
+the guard draws nothing.
 
 ## How a person adds an extension
 

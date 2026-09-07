@@ -220,6 +220,18 @@ fn the_cli_writes_the_template_and_refuses_a_non_empty_directory() {
         .mode();
     assert_eq!(plain & 0o777, 0o644);
 
+    let contract = Command::new("python3")
+        .args(["-B", "tests/test_contract.py"])
+        .current_dir(&target)
+        .output()
+        .unwrap();
+    assert!(
+        contract.status.success(),
+        "generated extension contract failed:\n{}\n{}",
+        String::from_utf8_lossy(&contract.stdout),
+        String::from_utf8_lossy(&contract.stderr)
+    );
+
     let again = fileblade()
         .args(["extension", "template", "acme.fileblade-weather"])
         .arg(&target)

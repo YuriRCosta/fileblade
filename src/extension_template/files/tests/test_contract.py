@@ -62,7 +62,8 @@ def test_blade_modules() -> None:
 def test_host_guard_targets_fileblade() -> None:
     source = (ROOT / "HostGuard.js").read_text(encoding="utf-8")
     check(f'var HOST_ID = "{HOST_ID}"' in source, "HostGuard.js must name the FileBlade host")
-    check("https://github.com/data-goblin/fileblade.git" in source, "HostGuard.js must install FileBlade from its repository")
+    check("https://github.com/data-goblin/fileblade" in source, "HostGuard.js must identify the FileBlade repository")
+    check("omarchy plugin add" not in source, "the host guard must never install FileBlade")
     check((ROOT / "assets" / "fileblade-logo.png").is_file(), "the host guard needs assets/fileblade-logo.png")
 
 
