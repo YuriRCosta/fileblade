@@ -36,14 +36,14 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
         "report.txt.2",
         &original,
         b"first version",
-        "2026-09-02T08:09:10",
+        &recent(60),
     );
     fs::write(home_trash.join("files/orphan"), b"orphaned").expect("orphan content");
     write_info(
         &home_trash,
         "gone",
         &encoded_path(&root.path().join("restored/gone.txt")),
-        "2026-09-01T08:09:10",
+        &recent(120),
     );
 
     let directory_name = "folder.internal";
@@ -52,7 +52,7 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
         &home_trash,
         directory_name,
         &encoded_path(&root.path().join("restored/folder")),
-        "2026-08-31T08:09:10",
+        &recent(180),
     );
     let info_mtime = fs::metadata(home_trash.join("info/folder.internal.trashinfo"))
         .expect("directory info metadata")
@@ -69,8 +69,11 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
     symlink(&victim, home_trash.join("info/linked-info.trashinfo")).expect("metadata symlink");
 
     fs::write(home_trash.join("files/oversized"), b"large metadata").expect("large item");
-    let mut oversized =
-        b"[Trash Info]\nPath=/tmp/oversized\nDeletionDate=2026-09-02T08:09:10\n".to_vec();
+    let mut oversized = format!(
+        "[Trash Info]\nPath=/tmp/oversized\nDeletionDate={}\n",
+        recent(60)
+    )
+    .into_bytes();
     oversized.resize(70 * 1024, b'x');
     fs::write(home_trash.join("info/oversized.trashinfo"), oversized).expect("oversized metadata");
 
@@ -79,7 +82,7 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
         &mounted_store,
         "mounted.internal",
         "restore/mounted.txt",
-        "2026-09-02T07:00:00",
+        &recent(90),
     );
     fs::write(
         private_mounted_store.join("files/private.internal"),
@@ -90,15 +93,10 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
         &private_mounted_store,
         "private.internal",
         "restore/private.txt",
-        "2026-09-02T06:00:00",
+        &recent(100),
     );
     fs::write(mounted_store.join("files/traversal"), b"traversal").expect("traversal content");
-    write_info(
-        &mounted_store,
-        "traversal",
-        "../outside.txt",
-        "2026-09-02T07:00:00",
-    );
+    write_info(&mounted_store, "traversal", "../outside.txt", &recent(90));
 
     let context = TrashContext::for_roots(
         home_trash.clone(),
@@ -255,14 +253,14 @@ fn freedesktop_trash_is_merged_bounded_and_collision_safe() {
         "cancel-one",
         &root.path().join("restored/cancel-one"),
         b"one",
-        "2026-09-02T10:00:00",
+        &recent(30),
     );
     create_item(
         &home_trash,
         "cancel-two",
         &root.path().join("restored/cancel-two"),
         b"two",
-        "2026-09-02T10:00:01",
+        &recent(29),
     );
     let mut phases = Vec::new();
     let partial = context.empty(&cancelled, &mut |event| {
@@ -299,6 +297,12 @@ fn create_store(path: &Path) {
         fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
             .expect("private Trash directory");
     }
+}
+
+fn recent(minutes_ago: i64) -> String {
+    (chrono::Local::now() - chrono::Duration::minutes(minutes_ago))
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string()
 }
 
 fn create_item(
