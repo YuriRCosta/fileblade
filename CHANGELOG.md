@@ -4,6 +4,8 @@ This file was written by an agent.
 
 ## 0.1.0-beta.1 (unreleased)
 
+- Install the Welcome extensions at reviewed commits and refuse installation if a pin is unavailable.
+- Keep recent trash-test fixtures relative to the test run so retention checks do not fail as dates pass.
 - Synchronize trash confirmations across monitors and bind answers to their requests.
 - Super+B and Super+Shift+B close open blades with one press.
 - Choose Active, mirrored All, or a named monitor lock in Settings.
