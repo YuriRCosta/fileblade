@@ -16,7 +16,8 @@ Without FileBlade:
 
 - the manifest's `extensions` block is inert JSON and nothing loads it
 - the service starts and does nothing
-- the host guard offers to install or enable FileBlade and restarts the shell
+- the host guard offers to enable FileBlade when it is installed but off, and
+  restarts the shell; it never installs anything
 
 The module declares `hostContract: 2`. FileBlade lists but refuses a module
 whose contract is newer than its own.

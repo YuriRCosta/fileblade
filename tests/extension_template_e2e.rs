@@ -330,3 +330,28 @@ fn the_bundled_image_script_writes_the_banner() {
     assert!(svg.trim_end().ends_with("</svg>"));
     assert!(!Path::new(&target).join("scripts/__pycache__").exists());
 }
+
+#[test]
+fn generated_extensions_ship_no_automatic_agent_instruction_path() {
+    let scaffold = extension_template::scaffold(&request("acme.fileblade-weather")).unwrap();
+    let files = extension_template::render(&scaffold).unwrap();
+    for file in &files {
+        let root_entry = file.path.split('/').next().unwrap_or(file.path);
+        assert!(
+            !matches!(
+                root_entry,
+                "AGENTS.md"
+                    | "CLAUDE.md"
+                    | "GEMINI.md"
+                    | ".cursorrules"
+                    | ".clinerules"
+                    | ".claude"
+                    | ".codex"
+                    | ".agents"
+            ),
+            "{} is published with the extension, where coding agents read it on their own",
+            file.path
+        );
+    }
+    rendered(&files, "docs/agent-guidelines.md");
+}

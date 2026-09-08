@@ -1886,3 +1886,37 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
         ipc.contains("function runAction(key: string, pathsJson: string, yes: string): string")
     );
 }
+
+#[test]
+fn no_automatic_agent_instruction_path_is_installed_with_the_plugin() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let candidates = [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "GEMINI.md",
+        ".cursorrules",
+        ".clinerules",
+        ".github/copilot-instructions.md",
+        ".claude",
+        ".codex",
+        ".agents",
+    ];
+    let listed = Command::new("git")
+        .current_dir(root)
+        .arg("ls-files")
+        .arg("--")
+        .args(candidates)
+        .output()
+        .expect("git ls-files runs");
+    assert!(listed.status.success(), "git ls-files failed");
+    let tracked = String::from_utf8_lossy(&listed.stdout);
+    assert!(
+        tracked.trim().is_empty(),
+        "cloned into the plugin directory, where coding agents read it on their own: {}",
+        tracked.trim()
+    );
+    let guidelines = text(&root.join("docs/agent-guidelines.md"));
+    assert!(guidelines.contains("# Instructions for agents"));
+    let contributing = text(&root.join("CONTRIBUTING.md"));
+    assert!(contributing.contains("[docs/agent-guidelines.md](docs/agent-guidelines.md)"));
+}
