@@ -19,6 +19,7 @@ QtObject {
   property int scanGeneration: 0
   property int revision: 0
   property var fileModules: ({})
+  property var catalogProviders: []
   readonly property int maximumModules: 128
   readonly property int maximumIdLength: 128
   readonly property int maximumTextLength: 512
@@ -61,6 +62,7 @@ QtObject {
       singleton: raw.singleton === undefined ? true : !!raw.singleton,
       minHeight: Math.max(0, Math.min(4096, Number(raw.minHeight) || 0)),
       hostContract: hostContract,
+      providerEntry: isSafeRelativePath(raw.provider) ? String(raw.provider).trim() : "",
       compatible: hostContract <= contractVersion,
       category: Definitions.category(raw.category, source),
       settings: Definitions.settingsSpec(raw.settings)
@@ -109,13 +111,14 @@ QtObject {
     return Array.isArray(manifest.bladeModules) ? manifest.bladeModules : null
   }
 
-  function providerModules(manifest, pluginId) {
+  function providerModules(manifest, pluginId, sourceDir) {
     var result = ({})
     var count = 0
     var contributed = socketContributions(manifest)
     if (!contributed) return result
+    var directory = sourceDir === undefined || sourceDir === null || sourceDir === "" ? manifest.__sourceDir : sourceDir
     for (var i = 0; i < contributed.length && count < maximumModules; i++) {
-      var module = normalizedModule(contributed[i], manifest.__sourceDir, "plugin:" + pluginId, pluginId)
+      var module = normalizedModule(contributed[i], directory, "plugin:" + pluginId, pluginId)
       if (module && !result[module.id]) {
         result[module.id] = module
         count++
@@ -146,6 +149,13 @@ QtObject {
       if (!providerEnabled) continue
       sources.push({ id: ids[i], dir: String(manifest.__sourceDir) })
     }
+    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var j = 0; j < catalog.length && sources.length < maximumModules; j++) {
+      var provider = catalog[j]
+      if (!provider || !provider.id || !provider.enabled || installed[provider.id]) continue
+      if (!provider.dir || !socketContributions(provider.manifest)) continue
+      sources.push({ id: String(provider.id), dir: String(provider.dir) })
+    }
     return sources
   }
 
@@ -160,6 +170,14 @@ QtObject {
       var candidates = providerModules(installed[ids[i]], ids[i])
       if (providerEnabled) mergeProviderModules(result, disabled, candidates)
       else mergeProviderModules(disabled, result, candidates)
+    }
+    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var j = 0; j < catalog.length && j < maximumModules; j++) {
+      var provider = catalog[j]
+      if (!provider || !provider.id || installed[provider.id]) continue
+      var fromDisk = providerModules(provider.manifest, String(provider.id), String(provider.dir || ""))
+      if (provider.enabled) mergeProviderModules(result, disabled, fromDisk)
+      else mergeProviderModules(disabled, result, fromDisk)
     }
     disabledModules = disabled
     return result

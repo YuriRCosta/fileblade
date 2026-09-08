@@ -41,7 +41,7 @@ if [[ ! -x "$runner" ]]; then
 fi
 for suite in tests/qml/tst_*.qml; do
   if output=$(env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_STYLE_OVERRIDE=Basic \
-    "$runner" -platform offscreen -input "$suite" 2>&1); then
+    "$runner" -platform offscreen -import tests/imports -input "$suite" 2>&1); then
     status=0
   else
     status=$?

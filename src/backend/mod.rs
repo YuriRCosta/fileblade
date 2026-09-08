@@ -85,6 +85,7 @@ pub enum BackendCommand {
     Undo(HistoryStepArgs),
     Redo(HistoryStepArgs),
     SetDefault(SetDefaultArgs),
+    PluginCatalog,
     PluginInstall,
     PluginInstallStatus,
     HyprOption(HyprOptionArgs),
@@ -407,6 +408,7 @@ fn dispatch_command(
         BackendCommand::Redo(options) => {
             crate::journal::redo(options.drop, options.force, cancelled)
         }
+        BackendCommand::PluginCatalog => crate::plugin_catalog::catalog()?,
         BackendCommand::PluginInstall => crate::plugin_install::install()?,
         BackendCommand::PluginInstallStatus => crate::plugin_install::status()?,
         BackendCommand::SetDefault(options) => crate::operations::set_default_application(

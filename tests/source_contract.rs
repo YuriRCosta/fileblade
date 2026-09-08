@@ -1048,9 +1048,18 @@ fn contributed_blade_modules_receive_their_singleton_provider_service() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let registry = text(&root.join("blades/BladeRegistry.qml"));
     assert!(registry.contains("providerId: boundedText(idPrefix, \"\", maximumIdLength)"));
+    assert!(
+        registry.contains(
+            "normalizedModule(contributed[i], directory, \"plugin:\" + pluginId, pluginId)"
+        )
+    );
     assert!(registry.contains(
-        "normalizedModule(contributed[i], manifest.__sourceDir, \"plugin:\" + pluginId, pluginId)"
+        "var directory = sourceDir === undefined || sourceDir === null || sourceDir === \"\" ? manifest.__sourceDir : sourceDir"
     ));
+    assert!(
+        registry.contains("property var catalogProviders: []"),
+        "the registry accepts providers the shell no longer discloses"
+    );
 
     let slot = text(&root.join("blades/BladeSlot.qml"));
     assert!(slot.contains(
@@ -2018,7 +2027,13 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
     assert!(controller.contains("import \"../lib/ActionRows.js\" as ActionRows"));
     assert!(!controller.contains("Process"));
     let service = text(&root.join("Service.qml"));
-    assert!(service.contains("services: ({ files: service, actions: actionController })"));
+    assert!(service.contains("var map = ({ files: service, actions: actionController })"));
+    assert!(
+        service.contains(
+            "for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]"
+        ),
+        "a contributed provider reaches its module through the services map"
+    );
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
     assert!(ipc.contains("function actions(): string"));
     assert!(ipc.contains("function actionResult(requestId: string): string"));

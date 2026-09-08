@@ -8,6 +8,7 @@ Item {
 
   property var shell: null
   property var pluginRegistry: null
+  property var catalogProviders: []
   property string pluginDir: ""
   property var config: ({})
   property var services: ({})
@@ -91,6 +92,7 @@ Item {
     pluginDir: host.pluginDir
     userModulesDir: host.configDir + "/modules"
     pluginRegistry: host.pluginRegistry
+    catalogProviders: host.catalogProviders
     service: host.services ? host.services.files : null
     contractVersion: host.moduleContractVersion
   }

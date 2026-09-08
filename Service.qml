@@ -50,6 +50,24 @@ Item {
   }
 
   ArtifactActionController { id: artifactActions; service: service }
+  ExtensionCatalog {
+    id: extensionCatalog
+    service: service
+    onRefreshed: bladeHost.registry.rescan()
+  }
+
+  Connections {
+    target: service
+    function onBackendReadyChanged() { if (service.backendReady) extensionCatalog.refresh() }
+    function onPluginRegistryChanged() { if (service.backendReady) extensionCatalog.refresh() }
+  }
+  ExtensionProviders {
+    id: extensionProviders
+    providers: extensionCatalog.providers
+    files: service
+    inventoryUrl: service.pluginDir ? "file://" + service.pluginDir + "/ui/ArtifactInventory.qml" : ""
+  }
+  readonly property alias extensionCatalog: extensionCatalog
   KeybindingsController { id: keybindings; service: service }
   readonly property alias keybindings: keybindings
   WelcomeController { id: welcomeController; service: service }
@@ -75,7 +93,13 @@ Item {
   }
 
   function moduleDirs(id, callback) { return bladeHost.dirs.ensure(id, callback) }
-  readonly property var services: ({ files: service, actions: actionController })
+  readonly property var services: {
+    var map = ({ files: service, actions: actionController })
+    var supplied = extensionProviders.services
+    var ids = supplied ? Object.keys(supplied) : []
+    for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]
+    return map
+  }
 
   property alias stateReady: stateController.ready
   property alias bladeHost: bladeHost
@@ -136,6 +160,7 @@ Item {
     id: bladeHost
     shell: service.shell
     pluginRegistry: service.pluginRegistry
+    catalogProviders: extensionCatalog.providers
     pluginDir: service.pluginDir
     config: service.pluginConfig()
     services: service.services
