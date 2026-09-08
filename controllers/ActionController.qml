@@ -31,6 +31,8 @@ Item {
     var entries = extensions[socketKey]
     return Array.isArray(entries) && entries.length > 0
   }
+  property var catalogProviders: []
+
   function providerEnabled(id) {
     if (!registry || typeof registry.isEnabled !== "function") return true
     return !!registry.isEnabled(String(id || ""))
@@ -48,6 +50,14 @@ Item {
       if (!contributes(manifest) || !manifest.__sourceDir) continue
       if (!providerEnabled(ids[i])) continue
       parameters.push("--provider", ids[i] + "=" + String(manifest.__sourceDir))
+      providers++
+    }
+    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var j = 0; j < catalog.length && providers < maximumProviders; j++) {
+      var row = catalog[j]
+      if (!row || row.enabled !== true || !row.id || !row.dir) continue
+      if (installed[row.id] || !contributes(row.manifest)) continue
+      parameters.push("--provider", String(row.id) + "=" + String(row.dir))
       providers++
     }
     parameters.push("--user", userDirectory())
@@ -285,6 +295,7 @@ Item {
   }
   Component.onCompleted: refresh()
   onRegistryChanged: refresh()
+  onCatalogProvidersChanged: refresh()
   property Connections registryLink: Connections {
     target: controller.registry
     ignoreUnknownSignals: true

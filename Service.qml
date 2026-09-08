@@ -74,6 +74,7 @@ Item {
   ExtensionProviders {
     id: extensionProviders
     providers: extensionCatalog.providers
+    disclosed: service.pluginRegistry && service.pluginRegistry.installedPlugins ? service.pluginRegistry.installedPlugins : ({})
     files: service
     inventoryUrl: service.pluginDir ? "file://" + service.pluginDir + "/ui/ArtifactInventory.qml" : ""
   }
@@ -571,6 +572,7 @@ Item {
   ActionController {
     id: actionController
     service: service
+    catalogProviders: extensionCatalog.providers
   }
 
   ConfigController {

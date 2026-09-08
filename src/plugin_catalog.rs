@@ -1,4 +1,4 @@
-use crate::actions::{plugin_root, read_manifest};
+use crate::actions::{MAX_MANIFEST_BYTES, plugin_root, read_manifest};
 use crate::command::{CommandSpec, which};
 use crate::common::path_text;
 use serde_json::{Value, json};
@@ -8,6 +8,9 @@ use std::time::Duration;
 
 const BLADE_SOCKET: &str = "data-goblin.fileblade/blade";
 const HELPER_SOCKET: &str = "data-goblin.fileblade/helper";
+const ACTION_SOCKET: &str = "data-goblin.fileblade/action";
+const MAX_ENTRY_BYTES: usize = 512;
+const MAX_ENTRY_SEGMENTS: usize = 8;
 const CORE_ID: &str = "data-goblin.fileblade";
 const MAX_ENTRIES: usize = 256;
 const MAX_PROVIDERS: usize = 128;
@@ -82,10 +85,8 @@ pub fn catalog() -> crate::AppResult<Value> {
             }
         };
         let manifest_path = root.join("manifest.json");
-        match std::fs::symlink_metadata(&manifest_path) {
-            Ok(metadata) if metadata.file_type().is_file() => {
-                bytes = bytes.saturating_add(metadata.len() as usize);
-            }
+        let declared = match std::fs::symlink_metadata(&manifest_path) {
+            Ok(metadata) if metadata.file_type().is_file() => metadata.len() as usize,
             Ok(_) => {
                 note(
                     &mut diagnostics,
@@ -95,7 +96,13 @@ pub fn catalog() -> crate::AppResult<Value> {
                 continue;
             }
             Err(_) => continue,
+        };
+        let readable = declared.min(MAX_MANIFEST_BYTES);
+        if bytes.saturating_add(readable) > MAX_MANIFEST_TOTAL_BYTES {
+            truncated = true;
+            break;
         }
+        bytes = bytes.saturating_add(readable);
         let manifest = match read_manifest(&root) {
             Ok(manifest) => manifest,
             Err(error) => {
@@ -119,6 +126,10 @@ pub fn catalog() -> crate::AppResult<Value> {
             continue;
         }
         if !contributes(&manifest) {
+            continue;
+        }
+        if let Err(error) = entries_are_confined(&manifest, &root) {
+            note(&mut diagnostics, &id, &error);
             continue;
         }
         if !seen.insert(id.clone()) {
@@ -147,7 +158,8 @@ pub fn catalog() -> crate::AppResult<Value> {
     Ok(json!({
         "ok": true,
         "providers": providers,
-        "activation": activation_state,
+        "activation": if truncated { "unknown" } else { activation_state },
+        "complete": !truncated,
         "truncated": truncated,
         "diagnostics": diagnostics,
     }))
@@ -158,9 +170,68 @@ fn contributes(manifest: &Value) -> bool {
         Some(Value::Object(extensions)) => extensions,
         _ => return false,
     };
-    [BLADE_SOCKET, HELPER_SOCKET]
+    [BLADE_SOCKET, HELPER_SOCKET, ACTION_SOCKET]
         .iter()
         .any(|socket| matches!(extensions.get(*socket), Some(Value::Array(entries)) if !entries.is_empty()))
+}
+
+fn declared_entries(manifest: &Value) -> Vec<String> {
+    let mut found = Vec::new();
+    let extensions = match manifest.get("extensions") {
+        Some(Value::Object(extensions)) => extensions,
+        _ => return found,
+    };
+    for socket in [BLADE_SOCKET, HELPER_SOCKET, ACTION_SOCKET] {
+        let Some(Value::Array(entries)) = extensions.get(socket) else {
+            continue;
+        };
+        for entry in entries.iter().take(MAX_PROVIDERS) {
+            for key in ["entry", "provider"] {
+                match entry.get(key) {
+                    Some(Value::String(value)) => found.push(value.clone()),
+                    Some(Value::Null) | None => {}
+                    Some(_) => found.push(String::new()),
+                }
+            }
+        }
+    }
+    found
+}
+
+fn entries_are_confined(manifest: &Value, root: &std::path::Path) -> Result<(), String> {
+    let canonical = std::fs::canonicalize(root).map_err(|error| error.to_string())?;
+    for entry in declared_entries(manifest) {
+        if entry.is_empty()
+            || entry.len() > MAX_ENTRY_BYTES
+            || entry.starts_with('/')
+            || entry.chars().any(char::is_control)
+        {
+            return Err(format!("{entry:?} is not a usable entry path"));
+        }
+        let relative = std::path::Path::new(&entry);
+        let segments = relative.components().count();
+        if segments == 0 || segments > MAX_ENTRY_SEGMENTS {
+            return Err(format!("{entry:?} is not a usable entry path"));
+        }
+        if relative
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+        {
+            return Err(format!("{entry:?} leaves the plugin directory"));
+        }
+        let target = canonical.join(relative);
+        match std::fs::symlink_metadata(&target) {
+            Ok(metadata) if metadata.file_type().is_file() => {}
+            Ok(_) => return Err(format!("{entry:?} is not a regular file")),
+            Err(error) => return Err(format!("{}: {error}", path_text(&target))),
+        }
+        let resolved = std::fs::canonicalize(&target)
+            .map_err(|error| format!("{}: {error}", path_text(&target)))?;
+        if !resolved.starts_with(&canonical) {
+            return Err(format!("{entry:?} leaves the plugin directory"));
+        }
+    }
+    Ok(())
 }
 
 fn plugins_dir() -> Result<PathBuf, String> {

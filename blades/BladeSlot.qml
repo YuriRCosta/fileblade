@@ -36,6 +36,7 @@ FocusScope {
   }
   readonly property bool moduleDisabled: !!disabledModuleInfo
   readonly property bool contractIncompatible: !!moduleInfo && moduleInfo.compatible === false
+  readonly property bool moduleNeedsUpdate: !!moduleInfo && moduleInfo.needsUpdate === true
   readonly property int requiredContractVersion: moduleInfo ? Number(moduleInfo.hostContract) || 1 : 1
   readonly property string entryUrl: moduleInfo && !contractIncompatible ? String(moduleInfo.entryUrl) : ""
   readonly property var moduleItem: loader.item
@@ -301,7 +302,9 @@ FocusScope {
       Text {
         textFormat: Text.PlainText
         width: parent.width
-        text: slot.contractIncompatible
+        text: slot.moduleNeedsUpdate
+          ? "Module " + slot.moduleId + " needs an update for this version of Omarchy"
+          : slot.contractIncompatible
           ? "Module " + slot.moduleId + " requires blade contract " + slot.requiredContractVersion
           : slot.loadFailed
           ? "Module " + slot.moduleId + " failed to load"

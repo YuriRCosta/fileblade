@@ -63,6 +63,9 @@ QtObject {
       minHeight: Math.max(0, Math.min(4096, Number(raw.minHeight) || 0)),
       hostContract: hostContract,
       providerEntry: isSafeRelativePath(raw.provider) ? String(raw.provider).trim() : "",
+      providerState: raw.provider === null ? "stateless"
+        : (isSafeRelativePath(raw.provider) ? "owned" : (raw.provider === undefined ? "legacy" : "invalid")),
+      needsUpdate: false,
       compatible: hostContract <= contractVersion,
       category: Definitions.category(raw.category, source),
       settings: Definitions.settingsSpec(raw.settings)
@@ -176,6 +179,13 @@ QtObject {
       var provider = catalog[j]
       if (!provider || !provider.id || installed[provider.id]) continue
       var fromDisk = providerModules(provider.manifest, String(provider.id), String(provider.dir || ""))
+      var diskIds = Object.keys(fromDisk)
+      for (var k = 0; k < diskIds.length; k++) {
+        var candidate = fromDisk[diskIds[k]]
+        if (candidate.providerState === "owned" || candidate.providerState === "stateless") continue
+        candidate.needsUpdate = true
+        candidate.compatible = false
+      }
       if (provider.enabled) mergeProviderModules(result, disabled, fromDisk)
       else mergeProviderModules(disabled, result, fromDisk)
     }

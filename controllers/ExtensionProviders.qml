@@ -1,12 +1,15 @@
 import QtQuick
+import qs.Commons
 
 QtObject {
   id: manager
 
   property var providers: []
+  property var disclosed: ({})
   property var files: null
   property string inventoryUrl: ""
   property var services: ({})
+  property var errors: ({})
   property var live: ({})
   readonly property int maximumProviders: 32
 
@@ -39,10 +42,12 @@ QtObject {
   function rebuild() {
     var next = ({})
     var exposed = ({})
+    var failed = ({})
     var rows = Array.isArray(providers) ? providers : []
     for (var i = 0; i < rows.length && Object.keys(next).length < maximumProviders; i++) {
       var row = rows[i]
       if (!row || row.enabled !== true || !row.id || !row.dir) continue
+      if (disclosed && disclosed[row.id]) continue
       var entry = providerEntry(row.manifest)
       if (!entry) continue
       var identity = identityOf(row, entry)
@@ -53,7 +58,10 @@ QtObject {
         continue
       }
       var object = create(row, entry)
-      if (!object) continue
+      if (!object) {
+        failed[row.id] = "The extension's provider could not be loaded"
+        continue
+      }
       next[row.id] = { identity: identity, object: object }
       exposed[row.id] = object
     }
@@ -64,11 +72,13 @@ QtObject {
     }
     live = next
     services = exposed
+    errors = failed
   }
 
   function create(row, entry) {
     if (!files || !inventoryUrl) return null
-    var source = "file://" + String(row.dir).replace(/\/$/, "") + "/" + entry
+    var source = Util.fileUrl(String(row.dir).replace(/\/$/, "") + "/" + entry)
+    if (!source) return null
     var component = Qt.createComponent(source, Component.PreferSynchronous)
     if (component.status !== Component.Ready) {
       component.destroy()

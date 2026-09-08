@@ -270,6 +270,54 @@ TestCase {
     compare(providers.providerEntry(null), "")
   }
 
+  readonly property string fixtureRoot: decodeURIComponent(String(Qt.resolvedUrl("fixtures/provider")).replace(/^file:\/\//, ""))
+
+  function providerRow(id, enabled) {
+    return { id: id, dir: fixtureRoot, manifest: companionManifest, enabled: enabled !== false }
+  }
+
+  function test_a_declared_provider_is_built_once_and_shared() {
+    providers.disclosed = ({})
+    providers.providers = [providerRow("acme.one")]
+    var runtime = providers.services["acme.one"]
+    verify(!!runtime)
+    compare(runtime.providerId, "acme.one")
+    compare(runtime.providerRoot, fixtureRoot)
+    compare(String(runtime.inventoryComponentUrl), providers.inventoryUrl)
+    compare(runtime.viewCount, 0)
+    providers.providers = [providerRow("acme.one")]
+    compare(providers.services["acme.one"], runtime)
+    compare(Object.keys(providers.errors).length, 0)
+  }
+
+  function test_a_changed_root_replaces_the_runtime_and_shuts_the_old_one_down() {
+    providers.disclosed = ({})
+    providers.providers = [providerRow("acme.one")]
+    var first = providers.services["acme.one"]
+    verify(!!first)
+    providers.providers = [{ id: "acme.one", dir: "/nowhere/acme.one", manifest: companionManifest, enabled: true }]
+    compare(first.retired, true)
+    compare(providers.services["acme.one"], undefined)
+    compare(providers.errors["acme.one"], "The extension's provider could not be loaded")
+  }
+
+  function test_a_shell_disclosed_plugin_keeps_its_own_runtime() {
+    providers.disclosed = ({ "acme.one": { id: "acme.one" } })
+    providers.providers = [providerRow("acme.one")]
+    compare(Object.keys(providers.services).length, 0)
+    providers.disclosed = ({})
+  }
+
+  function test_shutting_down_retires_every_runtime() {
+    providers.disclosed = ({})
+    providers.providers = [providerRow("acme.one")]
+    var runtime = providers.services["acme.one"]
+    verify(!!runtime)
+    providers.shutdown()
+    compare(runtime.retired, true)
+    compare(Object.keys(providers.services).length, 0)
+  }
+
   function test_a_disabled_or_rootless_provider_gets_no_runtime() {
     providers.providers = [
       { id: "acme.off", dir: "/plugins/acme.off", manifest: companionManifest, enabled: false },

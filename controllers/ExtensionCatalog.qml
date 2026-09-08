@@ -12,6 +12,8 @@ QtObject {
   property bool loading: false
   property double checkedAt: 0
   property bool dirty: false
+  property bool complete: true
+  property int watchFailures: 0
   property string watchRequestId: ""
   readonly property int maximumProviders: 128
   readonly property int minimumIntervalMs: 2000
@@ -75,8 +77,10 @@ QtObject {
         return
       }
       catalog.error = ""
+      catalog.complete = response.complete !== false
       catalog.activation = String(response.activation || "unknown")
-      catalog.providers = catalog.activation === "known" ? rows : catalog.withoutAuthority(rows)
+      var trusted = catalog.activation === "known" && catalog.complete
+      catalog.providers = trusted ? rows : catalog.withoutAuthority(rows)
       catalog.refreshed()
       catalog.pump()
     })
@@ -108,6 +112,15 @@ QtObject {
     return read()
   }
 
+  property Timer recovery: Timer {
+    interval: catalog.minimumIntervalMs
+    repeat: false
+    onTriggered: {
+      if (catalog.watch()) catalog.watchFailures = 0
+      catalog.requestRefresh()
+    }
+  }
+
   property Timer trailing: Timer {
     interval: catalog.minimumIntervalMs
     repeat: false
@@ -127,6 +140,10 @@ QtObject {
     }, function() {
       if (current !== catalog.generation) return
       catalog.watchRequestId = ""
+      catalog.invalidate("The installed extensions are no longer being watched")
+      catalog.watchFailures++
+      recovery.interval = Math.min(60000, minimumIntervalMs * Math.pow(2, Math.min(5, catalog.watchFailures)))
+      recovery.restart()
     })
     return watchRequestId !== ""
   }

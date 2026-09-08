@@ -79,6 +79,7 @@ const SOURCES: &[Source] = &[
     template!("Provider.qml"),
     template!("HostGuard.qml"),
     template!("HostGuard.js"),
+    template!("bin/fileblade-host-status", executable),
     template!("blades/Module.qml"),
     template!("README.md"),
     template!("ARCHITECTURE.md"),

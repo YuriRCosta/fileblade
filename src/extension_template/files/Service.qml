@@ -36,11 +36,11 @@ Item {
   Loader { id: runtime }
 
   Loader {
-    active: !!service.pluginRegistry
+    active: !!service.pluginRegistry && !!service.manifest && !!service.manifest.id
     source: "HostGuard.qml"
     onLoaded: {
-      item.pluginRegistry = Qt.binding(function() { return service.pluginRegistry })
       item.pluginId = Qt.binding(function() { return service.manifest ? String(service.manifest.id) : "" })
+      item.sourceDir = service.pluginDir
     }
   }
 }
