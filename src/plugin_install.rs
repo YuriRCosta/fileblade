@@ -18,11 +18,11 @@ pub const EXTENSIONS: &[Extension] = &[
     },
     Extension {
         url: "https://github.com/data-goblin/fileblade-mcp.git",
-        commit: "8302354681e87532a603bd8e5ced7b5741143226",
+        commit: "dc4fd8f53fad106d77dd90f8b20f609fce4576db",
     },
     Extension {
         url: "https://github.com/data-goblin/fileblade-hooks.git",
-        commit: "0c8e4c927b9fe66339d17f30b5d51420fa444b1a",
+        commit: "f62527bc60302b522a5fb8d7529a1ae743370bcd",
     },
 ];
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(180);
