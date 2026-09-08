@@ -2,23 +2,38 @@ import QtQuick
 
 Item {
   id: service
+  visible: false
 
   property var shell: null
   property var manifest: null
   property var pluginRegistry: null
+  property bool retired: false
 
-  readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : ""
+  readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "")).replace(/\/$/, "")
+  readonly property var observers: runtime.item ? runtime.item.observers : []
   readonly property int viewCount: observers.length
-  property var observers: []
+  readonly property string error: runtime.status === Loader.Error ? "Provider could not be loaded" : (runtime.item ? runtime.item.error : "")
 
   function attach(context) {
-    if (!context || observers.indexOf(context) >= 0) return
-    observers = observers.concat([context])
+    if (retired || !context || !manifest || !manifest.id) return false
+    if (String(runtime.source) === "") runtime.setSource(Qt.resolvedUrl("Provider.qml"), {
+      providerId: String(manifest.id), providerRoot: service.pluginDir,
+      files: context.service("files"), inventoryComponentUrl: context.ui.url("ArtifactInventory")
+    })
+    return runtime.item ? runtime.item.attach(context) : false
   }
 
   function detach(context) {
-    observers = observers.filter(function(value) { return value !== context })
+    if (runtime.item) runtime.item.detach(context)
   }
+
+  function shutdown() {
+    retired = true
+    if (runtime.item) runtime.item.shutdown()
+    runtime.source = ""
+  }
+
+  Loader { id: runtime }
 
   Loader {
     active: !!service.pluginRegistry

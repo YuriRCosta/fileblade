@@ -76,6 +76,7 @@ macro_rules! template {
 const SOURCES: &[Source] = &[
     template!("manifest.json"),
     template!("Service.qml"),
+    template!("Provider.qml"),
     template!("HostGuard.qml"),
     template!("HostGuard.js"),
     template!("blades/Module.qml"),

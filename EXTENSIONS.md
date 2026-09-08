@@ -201,6 +201,7 @@ socket key, and can also set `hostContract` once at the top for all of them:
         "glyph": "",
         "description": "A live clock that remembers its format per slot",
         "entry": "blades/Clock.qml",
+        "provider": "Provider.qml",
         "hostContract": 1,
         "singleton": false
       }
@@ -211,6 +212,29 @@ socket key, and can also set `hostContract` once at the top for all of them:
 
 The `Service.qml` of a dependent plugin can be nearly empty (the example's is
 three lines); the shell still needs an entry point to load the plugin at all.
+
+### The provider a module shares
+
+Omarchy 4.0.3 gives every third-party plugin a registry containing only itself,
+so FileBlade can no longer ask the shell for your plugin's service, and your own
+manifest no longer carries its source directory. Declare `provider` on the blade
+contribution and FileBlade owns that runtime itself: it reads your installed
+manifest from disk, creates one `Provider.qml` per plugin, and hands it to every
+module of yours through `context.service(providerId)` and
+`context.providerService`.
+
+FileBlade constructs it with exactly four properties: `providerId`,
+`providerRoot`, `files` and `inventoryComponentUrl`. It expects `attach(context)`
+to be idempotent, `detach(context)` to release one view, and `shutdown()` to be
+terminal. Creating a provider does no work; the first `attach` starts it and the
+last `detach` quiets it. When your plugin is disabled the host shuts that runtime
+down, so a provider must stop its watchers there.
+
+Keep `Service.qml` as a thin wrapper around the same `Provider.qml` for older
+hosts, and resolve your own directory from `Qt.resolvedUrl(".")` rather than the
+manifest. A contribution with no `provider` key is treated as legacy: it still
+works on a shell that discloses plugins to each other, and needs an update on a
+restricted one. `"provider": null` declares a module that owns no shared state.
 
 ## What your module gets
 
@@ -553,7 +577,7 @@ What it writes:
 
 ```yaml
 manifest.json:                         one blade module, hostContract 2, two declared settings
-Service.qml:                           the singleton provider with the host guard loader
+Service.qml, Provider.qml:             the shared runtime and the legacy wrapper with the host guard loader
 HostGuard.qml, HostGuard.js:           the missing-host guard the satellites carry
 blades/Module.qml:                     a FocusScope that shows the selection, routes Tab, Esc, Enter and e, and exposes shortcuts
 assets/fileblade-logo.png:             the logo the host guard tints
