@@ -119,15 +119,31 @@ Item {
       lane.refresh()
     }, function(response) {
       if (lane.watch !== request || !lane.owner.ready) return
-      if (response && Array.isArray(response.skipped) && response.skipped.length)
-        lane.watchProblem = "Some sources could not be watched; refresh to retry"
+      lane.watchFailures = 0
+      lane.watchProblem = response && Array.isArray(response.skipped) && response.skipped.length
+        ? "Some sources could not be watched; refresh to retry" : ""
       lane.refresh()
     }, function(response) {
       if (lane.watch !== request) return
       lane.watch = null
       lane.watchFingerprint = ""
-      if (lane.owner.ready && (!response || !response.cancelled)) lane.watchProblem = "Watch stopped; refresh to retry"
+      if (!lane.owner.ready || (response && response.cancelled)) return
+      lane.watchProblem = "Watch stopped; retrying"
+      lane.watchFailures++
+      laneRetry.interval = Math.min(60000, 2000 * Math.pow(2, Math.min(5, lane.watchFailures)))
+      laneRetry.restart()
     })
+  }
+
+  property int watchFailures: 0
+
+  Timer {
+    id: laneRetry
+    repeat: false
+    onTriggered: {
+      if (!lane.owner || !lane.owner.ready || lane.watch) return
+      lane.refresh()
+    }
   }
 
   function stopWatch(dispose) {
