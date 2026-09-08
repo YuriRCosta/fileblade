@@ -93,6 +93,16 @@ TestCase {
     controller = null
   }
 
+  function test_a_catalog_only_provider_is_enabled_and_reaches_the_gate() {
+    controller.catalogProviders = [{ id: "acme.actions", dir: "/plugins/acme.actions", manifest: {}, enabled: true }]
+    compare(controller.providerEnabled("acme.actions"), true)
+    controller.catalogProviders = [{ id: "acme.actions", dir: "/plugins/acme.actions", manifest: {}, enabled: false }]
+    compare(controller.providerEnabled("acme.actions"), false)
+    compare(controller.gate({ source: "plugin", plugin: "acme.actions", key: "acme.actions/run" }, null, true, 1),
+            "plugin acme.actions is disabled")
+    controller.catalogProviders = []
+  }
+
   function test_menu_refuses_a_selection_instead_of_running_a_prefix() {
     var entries = []
     for (var i = 0; i < 257; i++) entries.push({ path: "/tmp/f" + i, isDir: false })

@@ -172,6 +172,7 @@ Item {
     shell: service.shell
     pluginRegistry: service.pluginRegistry
     catalogProviders: extensionCatalog.providers
+    providerErrors: extensionProviders.errors
     pluginDir: service.pluginDir
     config: service.pluginConfig()
     services: service.services

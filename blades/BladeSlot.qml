@@ -37,6 +37,11 @@ FocusScope {
   readonly property bool moduleDisabled: !!disabledModuleInfo
   readonly property bool contractIncompatible: !!moduleInfo && moduleInfo.compatible === false
   readonly property bool moduleNeedsUpdate: !!moduleInfo && moduleInfo.needsUpdate === true
+  readonly property string providerError: {
+    var id = moduleInfo && moduleInfo.providerId ? String(moduleInfo.providerId) : ""
+    var reported = slot.host && slot.host.providerErrors ? slot.host.providerErrors : ({})
+    return id && reported[id] ? String(reported[id]) : ""
+  }
   readonly property int requiredContractVersion: moduleInfo ? Number(moduleInfo.hostContract) || 1 : 1
   readonly property string entryUrl: moduleInfo && !contractIncompatible ? String(moduleInfo.entryUrl) : ""
   readonly property var moduleItem: loader.item
@@ -137,7 +142,7 @@ FocusScope {
   }
 
   function opensSettings(event) {
-    var unavailable = !entryUrl || loadFailed || contractIncompatible
+    var unavailable = !entryUrl || loadFailed || contractIncompatible || providerError !== ""
     var activate = event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_O
     var modified = event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)
     if (!unavailable || !activate || modified) return false
@@ -281,7 +286,7 @@ FocusScope {
 
   Rectangle {
     anchors.fill: parent
-    visible: !slot.entryUrl || slot.loadFailed || slot.contractIncompatible
+    visible: !slot.entryUrl || slot.loadFailed || slot.contractIncompatible || slot.providerError !== ""
     color: Qt.lighter(Color.bar.background, 1.02)
 
     Column {
@@ -292,8 +297,8 @@ FocusScope {
       Text {
         textFormat: Text.PlainText
         width: parent.width
-        text: slot.loadFailed || slot.contractIncompatible ? "󰅚" : "󰐕"
-        color: slot.loadFailed || slot.contractIncompatible ? Color.urgent : Color.muted
+        text: slot.loadFailed || slot.contractIncompatible || slot.providerError !== "" ? "󰅚" : "󰐕"
+        color: slot.loadFailed || slot.contractIncompatible || slot.providerError !== "" ? Color.urgent : Color.muted
         horizontalAlignment: Text.AlignHCenter
         font.family: Style.font.family
         font.pixelSize: Style.font.title * 1.6
@@ -302,7 +307,9 @@ FocusScope {
       Text {
         textFormat: Text.PlainText
         width: parent.width
-        text: slot.moduleNeedsUpdate
+        text: slot.providerError !== ""
+          ? "Module " + slot.moduleId + " could not start"
+          : slot.moduleNeedsUpdate
           ? "Module " + slot.moduleId + " needs an update for this version of Omarchy"
           : slot.contractIncompatible
           ? "Module " + slot.moduleId + " requires blade contract " + slot.requiredContractVersion
@@ -321,7 +328,11 @@ FocusScope {
       Text {
         textFormat: Text.PlainText
         width: parent.width
-        text: slot.contractIncompatible
+        text: slot.providerError !== ""
+          ? slot.providerError + ". Check the shell log, then reload or choose another module."
+          : slot.moduleNeedsUpdate
+          ? "Update the Omarchy plugin that provides this module, then reopen this blade."
+          : slot.contractIncompatible
           ? "This host supports contract " + context.contractVersion + ". Update the blades host or choose another module."
           : slot.loadFailed
           ? "Check the shell log, then pick another module."

@@ -116,7 +116,7 @@ QtObject {
     interval: catalog.minimumIntervalMs
     repeat: false
     onTriggered: {
-      if (catalog.watch()) catalog.watchFailures = 0
+      catalog.watch()
       catalog.requestRefresh()
     }
   }
@@ -136,6 +136,7 @@ QtObject {
       if (catalog.relevant(event)) catalog.requestRefresh()
     }, function() {
       if (current !== catalog.generation) return
+      catalog.watchFailures = 0
       catalog.refresh()
     }, function() {
       if (current !== catalog.generation) return

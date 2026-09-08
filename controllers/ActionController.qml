@@ -33,9 +33,21 @@ Item {
   }
   property var catalogProviders: []
 
+  function catalogRow(id) {
+    var rows = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i] && String(rows[i].id) === String(id)) return rows[i]
+    return null
+  }
   function providerEnabled(id) {
+    var key = String(id || "")
+    var installed = registry && registry.installedPlugins ? registry.installedPlugins : ({})
+    if (!installed[key]) {
+      var row = catalogRow(key)
+      if (row) return row.enabled === true
+    }
     if (!registry || typeof registry.isEnabled !== "function") return true
-    return !!registry.isEnabled(String(id || ""))
+    return !!registry.isEnabled(key)
   }
   function userDirectory() {
     return service && service.bladeHost ? service.bladeHost.configDir + "/actions" : ""

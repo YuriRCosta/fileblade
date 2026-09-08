@@ -38,11 +38,17 @@ TestCase {
       pending = null
       if (callback) callback(reply)
     }
+    property var watchReady: null
+    property var watchClosed: null
     function backendSubscribe(paths, generation, event, ready, closed) {
       watchPaths = paths
       watchEvent = event
+      watchReady = ready
+      watchClosed = closed
       return "watch-1"
     }
+    function emitWatchReady() { if (watchReady) watchReady({ ok: true }) }
+    function emitWatchClosed() { if (watchClosed) watchClosed({ ok: false }) }
     function cancelBackendRequest(id, generation, discard) { watchEvent = null }
     function emitWatchEvent() { if (watchEvent) watchEvent({ path: "/home/tester/.config/omarchy/plugins/acme.one" }) }
   }
@@ -190,6 +196,22 @@ TestCase {
     compare(catalog.providers[0].enabled, false)
   }
 
+  function test_a_watch_that_comes_back_resets_its_backoff() {
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.watchPaths = ["/home/tester/.config/omarchy", "/home/tester/.config/omarchy/plugins"]
+    catalog.watchRequestId = ""
+    catalog.watchFailures = 3
+    catalog.checkedAt = 0
+    catalog.watch()
+    fakeService.emitWatchReady()
+    compare(catalog.watchFailures, 0)
+    fakeService.emitWatchClosed()
+    compare(catalog.watchRequestId, "")
+    compare(catalog.watchFailures, 1)
+    compare(catalog.recovery.running, true)
+    compare(catalog.activation, "unknown")
+  }
+
   function test_only_a_plugin_or_shell_change_wakes_the_catalog() {
     compare(catalog.relevant({ path: "/home/tester/.config/omarchy/plugins/acme.one" }), true)
     compare(catalog.relevant({ path: "/home/tester/.config/omarchy/shell.json" }), true)
@@ -306,6 +328,19 @@ TestCase {
     providers.providers = [providerRow("acme.one")]
     compare(Object.keys(providers.services).length, 0)
     providers.disclosed = ({})
+  }
+
+  function test_a_disclosure_change_alone_hands_the_runtime_back() {
+    providers.disclosed = ({})
+    providers.providers = [providerRow("acme.one")]
+    var runtime = providers.services["acme.one"]
+    verify(!!runtime)
+    providers.disclosed = ({ "acme.one": { id: "acme.one" } })
+    compare(runtime.retired, true)
+    compare(Object.keys(providers.services).length, 0)
+    providers.disclosed = ({})
+    verify(!!providers.services["acme.one"])
+    verify(providers.services["acme.one"] !== runtime)
   }
 
   function test_shutting_down_retires_every_runtime() {

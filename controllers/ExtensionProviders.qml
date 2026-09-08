@@ -108,4 +108,5 @@ QtObject {
   }
 
   onProvidersChanged: rebuild()
+  onDisclosedChanged: rebuild()
 }

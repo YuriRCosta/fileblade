@@ -9,6 +9,7 @@ Item {
   property var shell: null
   property var pluginRegistry: null
   property var catalogProviders: []
+  property var providerErrors: ({})
   property string pluginDir: ""
   property var config: ({})
   property var services: ({})
