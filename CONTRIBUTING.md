@@ -19,6 +19,13 @@ driven computer work.
 The rest of this document is agent-written, containing some specific instructions
 for your agent about how to contribute to the project.
 
+If you develop with coding agents, point them at
+[docs/agent-guidelines.md](docs/agent-guidelines.md) as well. It holds the
+project's rules for agent work: design intent, versioning, testing, authorship,
+and cleanup. It sits under `docs/` rather than at the repository root so that
+installing FileBlade as an Omarchy plugin never drops agent instructions into a
+directory a coding agent reads on its own.
+
 ---
 
 Bug reports should include reproduction steps, expected behavior, and the

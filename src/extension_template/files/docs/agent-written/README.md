@@ -48,6 +48,7 @@ assets/:                               fileblade-extension-logo.svg (README bann
 scripts/fileblade-extension-image.py:  regenerates the banner; standard library only
 tests/run:                             local gate
 tests/imports/qs/Commons/:             offline stub of the shell's Style, Color and Util singletons
+docs/agent-guidelines.md:              rules for coding agents working in this extension
 docs/agent-written/README.md:          this guide
 ARCHITECTURE.md:                       ownership and state
 ```

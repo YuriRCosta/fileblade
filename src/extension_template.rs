@@ -81,7 +81,7 @@ const SOURCES: &[Source] = &[
     template!("blades/Module.qml"),
     template!("README.md"),
     template!("ARCHITECTURE.md"),
-    template!("AGENTS.md"),
+    template!("docs/agent-guidelines.md"),
     template!("LICENSE"),
     Source {
         path: ".gitignore",

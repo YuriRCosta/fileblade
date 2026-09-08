@@ -558,7 +558,7 @@ HostGuard.qml, HostGuard.js:           the missing-host guard the satellites car
 blades/Module.qml:                     a FocusScope that shows the selection, routes Tab, Esc, Enter and e, and exposes shortcuts
 assets/fileblade-logo.png:             the logo the host guard tints
 scripts/fileblade-extension-image.py:  writes assets/fileblade-extension-logo.svg with the extension name outlined under the wordmark; standard library only, --png and --host-logo rasterize with rsvg-convert
-README.md, ARCHITECTURE.md, AGENTS.md, docs/agent-written/README.md, LICENSE, .gitignore
+README.md, ARCHITECTURE.md, docs/agent-guidelines.md, docs/agent-written/README.md, LICENSE, .gitignore
 tests/run, tests/tst_module.qml, tests/tst_host_guard.qml, tests/test_contract.py, tests/imports/:  the local gate, with a qs.Commons stub so the module loads offline
 ```
 

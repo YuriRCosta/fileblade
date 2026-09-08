@@ -112,7 +112,7 @@ fn rendered_files_carry_no_placeholders_and_match_the_manifest_contract() {
         "blades/Module.qml",
         "README.md",
         "ARCHITECTURE.md",
-        "AGENTS.md",
+        "docs/agent-guidelines.md",
         "LICENSE",
         ".gitignore",
         "docs/agent-written/README.md",
