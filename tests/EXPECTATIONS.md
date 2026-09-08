@@ -955,3 +955,24 @@ startup targets also have deterministic QML coverage.
   back to its creation monitor.
 - **E-34-16** Unplugging the source monitor during a held module or file drag
   cancels it. The layout and files stay unchanged, and no paste is dispatched.
+
+## 35. Extensions on a shell that hides plugins from each other
+
+This file was written by an agent.
+
+- **E-35-01** On Omarchy 4.0.3, where a plugin is told only about itself, my
+  installed FileBlade extensions still appear as tabs with their contents. The
+  Welcome tab, the module picker and the settings sheet list them exactly as
+  they do on 4.0.2.
+- **E-35-02** Disabling an extension with `omarchy plugin disable` removes its
+  tab within a few seconds without restarting the shell, and the extension
+  stops watching my files. Enabling it again brings the tab back the same way.
+- **E-35-03** Installing an extension while FileBlade is running makes it
+  available within a few seconds of enabling it. Closing and reopening one
+  blade also picks it up, even when my other blade stayed open the whole time.
+- **E-35-04** If the list of installed plugins cannot be read, the extensions I
+  already have keep their tabs but are shown as unavailable rather than
+  silently continuing to run.
+- **E-35-05** An extension built before this change still works on a shell that
+  discloses plugins to each other, and says it needs an update on one that does
+  not, rather than showing an empty tab.
