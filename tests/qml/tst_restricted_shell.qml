@@ -18,11 +18,20 @@ TestCase {
     id: fakeService
     property var lastRequest: null
     property var reply: null
+    property var watchEvent: null
+    property var watchPaths: []
     function backendRequest(name, args, generation, callback) {
       lastRequest = { name: name, args: args }
       if (callback) callback(reply)
       return "request-1"
     }
+    function backendSubscribe(paths, generation, event, ready, closed) {
+      watchPaths = paths
+      watchEvent = event
+      return "watch-1"
+    }
+    function cancelBackendRequest(id, generation, discard) { watchEvent = null }
+    function emitWatchEvent() { if (watchEvent) watchEvent({ path: "/plugins" }) }
   }
 
   property var companionManifest: ({
@@ -140,11 +149,43 @@ TestCase {
     compare(catalog.error, "")
   }
 
-  function test_an_unreadable_catalog_reports_and_keeps_the_last_snapshot() {
+  function test_an_unreadable_catalog_keeps_the_rows_but_drops_their_authority() {
+    fakeService.reply = { ok: true, activation: "known", providers: [
+      { id: "acme.one", dir: "/plugins/acme.one", manifest: companionManifest, enabled: true }
+    ]}
+    catalog.checkedAt = 0
+    catalog.refresh()
+    compare(catalog.providers[0].enabled, true)
     fakeService.reply = { ok: false, message: "no plugins directory" }
+    catalog.checkedAt = 0
     catalog.refresh()
     compare(catalog.providers.length, 1)
+    compare(catalog.providers[0].enabled, false)
+    compare(catalog.activation, "unknown")
     compare(catalog.error, "no plugins directory")
+  }
+
+  function test_an_unknown_activation_never_reads_as_enabled() {
+    fakeService.reply = { ok: true, activation: "unknown", providers: [
+      { id: "acme.one", dir: "/plugins/acme.one", manifest: companionManifest, enabled: true }
+    ]}
+    catalog.checkedAt = 0
+    catalog.refresh()
+    compare(catalog.providers.length, 1)
+    compare(catalog.providers[0].enabled, false)
+  }
+
+  function test_a_repeat_refresh_is_coalesced_but_a_watch_event_is_not() {
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.checkedAt = 0
+    compare(catalog.refresh(), true)
+    compare(catalog.refresh(), false)
+    catalog.watchPaths = ["/home/tester/.config/omarchy/shell.json", "/home/tester/.config/omarchy/plugins"]
+    compare(catalog.watch(), true)
+    compare(fakeService.watchPaths.length, 2)
+    catalog.checkedAt = 0
+    fakeService.emitWatchEvent()
+    compare(fakeService.lastRequest.name, "plugin-catalog")
   }
 
   function test_the_provider_manager_refuses_an_unsafe_or_absent_provider_entry() {

@@ -53,13 +53,19 @@ Item {
   ExtensionCatalog {
     id: extensionCatalog
     service: service
+    watchPaths: [service.home + "/.config/omarchy/shell.json", service.home + "/.config/omarchy/plugins"]
     onRefreshed: bladeHost.registry.rescan()
   }
 
   Connections {
     target: service
-    function onBackendReadyChanged() { if (service.backendReady) extensionCatalog.refresh() }
+    function onBackendReadyChanged() {
+      if (!service.backendReady) return
+      extensionCatalog.refresh()
+      extensionCatalog.watch()
+    }
     function onPluginRegistryChanged() { if (service.backendReady) extensionCatalog.refresh() }
+    function onOpenChanged() { if (service.open && service.backendReady) extensionCatalog.refreshIfStale() }
   }
   ExtensionProviders {
     id: extensionProviders
