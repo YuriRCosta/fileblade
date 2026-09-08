@@ -65,7 +65,11 @@ Item {
       extensionCatalog.watch()
     }
     function onPluginRegistryChanged() { if (service.backendReady) extensionCatalog.refresh() }
-    function onOpenChanged() { if (service.open && service.backendReady) extensionCatalog.refreshIfStale() }
+  }
+
+  Connections {
+    target: bladeHost
+    function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }
   }
   ExtensionProviders {
     id: extensionProviders

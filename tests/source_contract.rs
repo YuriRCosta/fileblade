@@ -1060,6 +1060,28 @@ fn contributed_blade_modules_receive_their_singleton_provider_service() {
         registry.contains("property var catalogProviders: []"),
         "the registry accepts providers the shell no longer discloses"
     );
+    let host = text(&root.join("blades/BladeHost.qml"));
+    assert!(
+        host.contains("signal bladeOpened(string edge)")
+            && host.contains("if (desired) bladeOpened(target)"),
+        "opening one blade is observable even while another blade is already open"
+    );
+    let catalog = text(&root.join("controllers/ExtensionCatalog.qml"));
+    assert!(catalog.contains("function requestRefresh()"));
+    assert!(
+        catalog.contains("path.indexOf(\"/plugins\") >= 0 || path.indexOf(\"shell.json\") >= 0"),
+        "an enable or disable that only rewrites the shell configuration wakes the catalog"
+    );
+    let service_wiring = text(&root.join("Service.qml"));
+    assert!(
+        service_wiring.contains("function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }"),
+        "a blade opening re-reads a stale catalog"
+    );
+    assert!(
+        service_wiring.contains("service.home + \"/.config/omarchy\"")
+            && !service_wiring.contains("/.config/omarchy/shell.json\""),
+        "the catalog watches directories, which is all the subscription accepts"
+    );
 
     let slot = text(&root.join("blades/BladeSlot.qml"));
     assert!(slot.contains(

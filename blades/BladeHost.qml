@@ -85,6 +85,7 @@ Item {
   signal bladeFocusRequested(string edge, var targetScreen, int slotIndex, string part)
   signal bladeFocusReleased(string edge)
   signal layoutApplied()
+  signal bladeOpened(string edge)
 
   BladeRegistry {
     id: registry
@@ -275,6 +276,7 @@ Item {
     if (!desired && focusedEdge === target) restoreWorkspaceFocus()
     if (desired) bladeLayout.noteOpened(target)
     updateBlade(target, function(blade) { blade.open = desired }, persist)
+    if (desired) bladeOpened(target)
     if (!desired) bladeLayout.noteClosed(target)
     if (!desired && focusedEdge === target) focusedEdge = ""
     if (!desired && settingsOpen && settingsEdge === target) settingsOpen = false
@@ -292,6 +294,7 @@ Item {
       if (!!next[edge].open !== desired) {
         next[edge].open = desired
         changed = true
+        if (desired) bladeOpened(edge)
       }
     }
     if (!desired) {
