@@ -11,6 +11,7 @@ QtObject {
   property string error: ""
   property bool loading: false
   property double checkedAt: 0
+  property bool dirty: false
   property string watchRequestId: ""
   readonly property int maximumProviders: 128
   readonly property int minimumIntervalMs: 2000
@@ -58,6 +59,11 @@ QtObject {
   function refresh() {
     if (!service || loading) return false
     if (checkedAt > 0 && Date.now() - checkedAt < minimumIntervalMs) return false
+    return read()
+  }
+
+  function read() {
+    if (!service || loading) return false
     loading = true
     service.backendRequest("plugin-catalog", [], catalog.generation, function(response) {
       catalog.loading = false
@@ -65,12 +71,14 @@ QtObject {
       var rows = catalog.accepted(response)
       if (rows === null) {
         catalog.invalidate(response && (response.message || response.error))
+        catalog.pump()
         return
       }
       catalog.error = ""
       catalog.activation = String(response.activation || "unknown")
       catalog.providers = catalog.activation === "known" ? rows : catalog.withoutAuthority(rows)
       catalog.refreshed()
+      catalog.pump()
     })
     return true
   }
@@ -84,22 +92,26 @@ QtObject {
   }
 
   function requestRefresh() {
-    if (loading) {
-      trailing.interval = minimumIntervalMs
+    dirty = true
+    return pump()
+  }
+
+  function pump() {
+    if (!dirty || loading || !service) return false
+    var since = checkedAt > 0 ? Date.now() - checkedAt : minimumIntervalMs
+    if (since < minimumIntervalMs) {
+      trailing.interval = Math.max(1, minimumIntervalMs - since)
       trailing.restart()
       return false
     }
-    var since = checkedAt > 0 ? Date.now() - checkedAt : minimumIntervalMs
-    if (since >= minimumIntervalMs) return refresh()
-    trailing.interval = Math.max(1, minimumIntervalMs - since)
-    trailing.restart()
-    return false
+    dirty = false
+    return read()
   }
 
   property Timer trailing: Timer {
     interval: catalog.minimumIntervalMs
     repeat: false
-    onTriggered: catalog.refresh()
+    onTriggered: catalog.pump()
   }
 
   function watch() {

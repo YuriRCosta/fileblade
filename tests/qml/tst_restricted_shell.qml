@@ -21,11 +21,22 @@ TestCase {
     property var watchEvent: null
     property var watchPaths: []
     property int requestCount: 0
+    property bool defer: false
+    property var pending: null
     function backendRequest(name, args, generation, callback) {
       requestCount++
       lastRequest = { name: name, args: args }
+      if (defer) {
+        pending = callback
+        return "request-1"
+      }
       if (callback) callback(reply)
       return "request-1"
+    }
+    function settle() {
+      var callback = pending
+      pending = null
+      if (callback) callback(reply)
     }
     function backendSubscribe(paths, generation, event, ready, closed) {
       watchPaths = paths
@@ -141,6 +152,8 @@ TestCase {
   }
 
   function test_a_refresh_asks_the_backend_for_the_catalog() {
+    catalog.checkedAt = 0
+    catalog.dirty = false
     fakeService.reply = { ok: true, activation: "known", providers: [
       { id: "acme.one", dir: "/plugins/acme.one", manifest: companionManifest, enabled: true }
     ]}
@@ -184,6 +197,44 @@ TestCase {
     compare(catalog.relevant({ path: "/home/tester/.config/omarchy/current/theme" }), false)
     compare(catalog.relevant({}), false)
     compare(catalog.relevant(null), false)
+  }
+
+  function test_a_request_during_a_read_is_kept_and_served_afterwards() {
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    fakeService.defer = true
+    catalog.checkedAt = 0
+    catalog.dirty = false
+    compare(catalog.requestRefresh(), true)
+    compare(catalog.loading, true)
+    compare(catalog.requestRefresh(), false)
+    compare(catalog.dirty, true)
+    var before = fakeService.requestCount
+    fakeService.settle()
+    compare(catalog.loading, false)
+    compare(catalog.dirty, true)
+    compare(catalog.trailing.running, true)
+    catalog.checkedAt = Date.now() - catalog.minimumIntervalMs - 1
+    compare(catalog.pump(), true)
+    compare(fakeService.requestCount, before + 1)
+    compare(catalog.dirty, false)
+    fakeService.defer = false
+    fakeService.settle()
+  }
+
+  function test_a_kept_request_survives_a_throttled_wake_up() {
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.checkedAt = Date.now()
+    catalog.dirty = false
+    compare(catalog.requestRefresh(), false)
+    compare(catalog.dirty, true)
+    var before = fakeService.requestCount
+    catalog.pump()
+    compare(fakeService.requestCount, before)
+    compare(catalog.dirty, true)
+    catalog.checkedAt = Date.now() - catalog.minimumIntervalMs - 1
+    compare(catalog.pump(), true)
+    compare(fakeService.requestCount, before + 1)
+    compare(catalog.dirty, false)
   }
 
   function test_an_event_inside_the_window_refreshes_once_afterwards() {
