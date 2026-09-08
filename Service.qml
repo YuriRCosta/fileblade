@@ -53,7 +53,7 @@ Item {
   ExtensionCatalog {
     id: extensionCatalog
     service: service
-    watchPaths: [service.home + "/.config/omarchy/shell.json", service.home + "/.config/omarchy/plugins"]
+    watchPaths: [service.home + "/.config/omarchy", service.home + "/.config/omarchy/plugins"]
     onRefreshed: bladeHost.registry.rescan()
   }
 

@@ -75,14 +75,40 @@ QtObject {
     return true
   }
 
+  function relevant(event) {
+    if (!event) return false
+    if (event.overflow) return true
+    var path = String(event.path || event.root || "")
+    if (!path) return false
+    return path.indexOf("/plugins") >= 0 || path.indexOf("shell.json") >= 0
+  }
+
+  function requestRefresh() {
+    if (loading) {
+      trailing.interval = minimumIntervalMs
+      trailing.restart()
+      return false
+    }
+    var since = checkedAt > 0 ? Date.now() - checkedAt : minimumIntervalMs
+    if (since >= minimumIntervalMs) return refresh()
+    trailing.interval = Math.max(1, minimumIntervalMs - since)
+    trailing.restart()
+    return false
+  }
+
+  property Timer trailing: Timer {
+    interval: catalog.minimumIntervalMs
+    repeat: false
+    onTriggered: catalog.refresh()
+  }
+
   function watch() {
     if (!service || watchRequestId || !Array.isArray(watchPaths) || watchPaths.length === 0) return false
     generation++
     var current = generation
-    watchRequestId = service.backendSubscribe(watchPaths.slice(), current, function() {
+    watchRequestId = service.backendSubscribe(watchPaths.slice(), current, function(event) {
       if (current !== catalog.generation) return
-      catalog.checkedAt = 0
-      catalog.refresh()
+      if (catalog.relevant(event)) catalog.requestRefresh()
     }, function() {
       if (current !== catalog.generation) return
       catalog.refresh()

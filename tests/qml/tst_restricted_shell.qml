@@ -20,7 +20,9 @@ TestCase {
     property var reply: null
     property var watchEvent: null
     property var watchPaths: []
+    property int requestCount: 0
     function backendRequest(name, args, generation, callback) {
+      requestCount++
       lastRequest = { name: name, args: args }
       if (callback) callback(reply)
       return "request-1"
@@ -31,7 +33,7 @@ TestCase {
       return "watch-1"
     }
     function cancelBackendRequest(id, generation, discard) { watchEvent = null }
-    function emitWatchEvent() { if (watchEvent) watchEvent({ path: "/plugins" }) }
+    function emitWatchEvent() { if (watchEvent) watchEvent({ path: "/home/tester/.config/omarchy/plugins/acme.one" }) }
   }
 
   property var companionManifest: ({
@@ -175,6 +177,25 @@ TestCase {
     compare(catalog.providers[0].enabled, false)
   }
 
+  function test_only_a_plugin_or_shell_change_wakes_the_catalog() {
+    compare(catalog.relevant({ path: "/home/tester/.config/omarchy/plugins/acme.one" }), true)
+    compare(catalog.relevant({ path: "/home/tester/.config/omarchy/shell.json" }), true)
+    compare(catalog.relevant({ overflow: true }), true)
+    compare(catalog.relevant({ path: "/home/tester/.config/omarchy/current/theme" }), false)
+    compare(catalog.relevant({}), false)
+    compare(catalog.relevant(null), false)
+  }
+
+  function test_an_event_inside_the_window_refreshes_once_afterwards() {
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.checkedAt = 0
+    compare(catalog.refresh(), true)
+    var before = fakeService.requestCount
+    compare(catalog.requestRefresh(), false)
+    compare(fakeService.requestCount, before)
+    compare(catalog.trailing.running, true)
+  }
+
   function test_a_repeat_refresh_is_coalesced_but_a_watch_event_is_not() {
     fakeService.reply = { ok: true, activation: "known", providers: [] }
     catalog.checkedAt = 0
@@ -186,6 +207,7 @@ TestCase {
     catalog.checkedAt = 0
     fakeService.emitWatchEvent()
     compare(fakeService.lastRequest.name, "plugin-catalog")
+    compare(catalog.relevant({ path: "/plugins" }), true)
   }
 
   function test_the_provider_manager_refuses_an_unsafe_or_absent_provider_entry() {
