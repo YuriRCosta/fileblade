@@ -2,6 +2,11 @@ This file was written by an agent.
 
 # Changelog
 
+## 0.1.3 (unreleased)
+
+- Show available release versions instead of commit counts.
+- List companion updates separately, with one bullet per extension.
+
 ## 0.1.0-beta.1 (unreleased)
 
 - Install the Welcome extensions at reviewed commits and refuse installation if a pin is unavailable.
