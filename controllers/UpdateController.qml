@@ -51,6 +51,7 @@ Item {
   }
 
   function commitWord(count) {
+    if (count === null || count === undefined) return "upstream changed; details available after updating"
     return count === 1 ? "1 commit" : count + " commits"
   }
 
@@ -122,7 +123,7 @@ Item {
         return
       }
       controller.report = response
-      controller.upToDateNotice = !controller.available && !controller.backendStale
+      controller.upToDateNotice = !controller.available && !controller.backendStale && controller.repositories.length > 0 && controller.repositories.every(function(row) { return row.ok !== false && !row.dirty && !(row.ahead > 0) })
       if (controller.upToDateNotice) upToDateTimer.restart()
     }, null, 240000)
   }

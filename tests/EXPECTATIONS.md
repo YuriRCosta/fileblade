@@ -976,3 +976,31 @@ This file was written by an agent.
 - **E-35-05** An extension built before this change still works on a shell that
   discloses plugins to each other, and says it needs an update on one that does
   not, rather than showing an empty tab.
+
+## 36. Explicit cleanup and agent-file management
+
+This file was written by an agent.
+
+- **E-36-01** A fresh install and an existing install without a recorded answer ask
+  “Should FileBlade automatically empty the trash?” Never, 1 day, 7 days, 30 days
+  and 90 days appear as a list with Never selected. Escape does nothing; Confirm
+  is the only completion action, and confirming the initial choice disables pruning.
+- **E-36-02** The question blocks FileBlade only. I can use another app and return
+  to the same question. It explains shared Trash, permanent deletion and where to
+  change the setting. No automatic pruning runs before Confirm is saved.
+  It uses FileBlade's font, with the full Trash icon beside the heading, and appears
+  once on the left blade, opening it if only
+  the right blade was open. An undocked left blade shows it in its own window.
+- **E-36-03** Each choice survives restarting the shell without another question;
+  changing retention in settings still works. A failed save leaves the question
+  present and automatic cleanup off. Config and keybindings record their schema
+  and FileBlade release, preserving existing keybindings.
+- **E-36-04** Skills and Memory are browsable by default. Changes require explicitly
+  enabling Manage agent files after its explanation; disabling it refuses further
+  management actions, including CLI bin removal and restore.
+- **E-36-05** Purging an MCP or Hooks removal deletes its private recovery too.
+  Repeating removal and purge does not fill an invisible undo quota. Disabled
+  companions must be explicitly enabled before restore or cleanup can run.
+- **E-36-06** Welcome preserves an existing modified or differently pinned checkout
+  and explains why it did not enable it. An update check downloads no Git objects
+  and does not invent history details when those objects are not available.

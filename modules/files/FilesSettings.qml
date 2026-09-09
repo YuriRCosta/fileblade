@@ -6,6 +6,7 @@ Column {
   id: root
 
   required property var controller
+  signal retentionConsentRequested(int days)
 
   spacing: Style.space(3)
 
@@ -131,7 +132,10 @@ Column {
       { key: "90", label: "90 days" }
     ]
     value: String(root.controller.trashRetentionDays)
-    onChosen: function(key) { root.controller.setTrashRetentionDays(Number(key)) }
+    onChosen: function(key) {
+      if (Number(key) === 0) root.controller.setTrashRetentionDays(0, false)
+      else root.retentionConsentRequested(Number(key))
+    }
   }
 
   PluginUi.ToggleRow {

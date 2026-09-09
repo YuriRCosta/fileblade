@@ -86,6 +86,10 @@ Item {
 
   function ask(entry) {
     if (!entry || busy) return
+    if (["skills", "memory"].indexOf(module) >= 0 && service.agentManagementEnabled !== true) {
+      localError = "Enable Manage agent files in General settings to change Skills or Memory"
+      return
+    }
     pending = entry
     var item = isBinned(entry) ? null : describe(entry)
     var shownPath = item && item.path ? targetPath(entry, item.path) : entryPath(entry)

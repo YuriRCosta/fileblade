@@ -102,7 +102,7 @@ fn specs_parse_only_well_formed_absolute_entries() {
 }
 
 #[test]
-fn check_reports_behind_commits_versions_and_subjects() {
+fn check_observes_remote_changes_without_downloading_objects() {
     let fixture = fixture("check");
     let cancelled = AtomicBool::new(false);
     let specs = [spec("t.plugin", &fixture.installed)];
@@ -116,13 +116,27 @@ fn check_reports_behind_commits_versions_and_subjects() {
     let behind = check(&specs, "", &cancelled);
     let row = &behind["repositories"][0];
     assert_eq!(behind["available"], true);
-    assert_eq!(row["behind"], 1);
+    assert!(row["behind"].is_null());
+    assert_eq!(row["comparison_known"], false);
     assert_eq!(row["ahead"], 0);
     assert_eq!(row["dirty"], false);
     assert_eq!(row["updatable"], true);
     assert_eq!(row["current_version"], "1.0.0");
-    assert_eq!(row["upstream_version"], "1.1.0");
-    assert_eq!(row["subjects"][0], "second");
+    assert_eq!(row["upstream_version"], "");
+    assert_eq!(row["subjects"], serde_json::json!([]));
+    assert_eq!(
+        git_stdout(&fixture.installed, &["rev-parse", "@{u}"]),
+        installed_head
+    );
+    let remote_head = git_stdout(&fixture.author, &["rev-parse", "HEAD"]);
+    assert!(
+        !Command::new("git")
+            .args(["cat-file", "-e", &remote_head])
+            .current_dir(&fixture.installed)
+            .status()
+            .unwrap()
+            .success()
+    );
     assert_eq!(row["core"], false);
     assert_eq!(
         git_stdout(&fixture.installed, &["rev-parse", "HEAD"]),
@@ -172,4 +186,24 @@ fn check_refuses_non_checkouts_and_missing_upstreams() {
 fn backend_exposes_update_check_but_not_update_apply() {
     assert!(fileblade::backend::parse(["fileblade", "update-check"]).is_ok());
     assert!(fileblade::backend::parse(["fileblade", "update-apply"]).is_err());
+}
+
+#[test]
+fn a_detached_pin_can_check_and_use_the_omarchy_fast_forward_update_path() {
+    let fixture = fixture("detached");
+    git(&fixture.installed, &["checkout", "--detach", "-q"]);
+    let specs = [spec("t.plugin", &fixture.installed)];
+    let cancelled = AtomicBool::new(false);
+    assert_eq!(check(&specs, "", &cancelled)["available"], false);
+    publish(&fixture, "1.1.0", "next release");
+    let report = check(&specs, "", &cancelled);
+    assert_eq!(report["repositories"][0]["updatable"], true, "{report}");
+    git(&fixture.installed, &["fetch", "--quiet", "origin", "HEAD"]);
+    git(&fixture.installed, &["merge", "--ff-only", "FETCH_HEAD"]);
+    assert_eq!(
+        git_stdout(&fixture.installed, &["rev-parse", "HEAD"]),
+        git_stdout(&fixture.author, &["rev-parse", "HEAD"])
+    );
+    assert_eq!(check(&specs, "", &cancelled)["available"], false);
+    fs::remove_dir_all(fixture.remote.parent().unwrap()).unwrap();
 }

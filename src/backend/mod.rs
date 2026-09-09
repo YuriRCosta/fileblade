@@ -49,6 +49,9 @@ pub enum BackendCommand {
     Clipboard(ClipboardArgs),
     ClipboardWrite(ClipboardWriteArgs),
     ClipboardText(PathsArgs),
+    KeybindingsPrepare,
+    PreferencesRead,
+    PreferencesSet(crate::preferences::Changes),
     StateRead,
     StateWrite(DocumentArgs),
     LayoutRead,
@@ -145,6 +148,8 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::EjectVolume(_)
             | BackendCommand::ActionRun(_)
             | BackendCommand::HelperWrite(_)
+            | BackendCommand::PreferencesSet(_)
+            | BackendCommand::KeybindingsPrepare
     )
 }
 
@@ -288,6 +293,15 @@ fn dispatch_command(
             clipboard_write(&options.path, options.cut, cancelled)
         }
         BackendCommand::ClipboardText(options) => clipboard_text(&options.path, cancelled),
+        BackendCommand::KeybindingsPrepare => {
+            json!({"ok":true,"text":crate::preferences::keybindings()?})
+        }
+        BackendCommand::PreferencesRead => {
+            json!({"ok":true,"settings":crate::preferences::read()?})
+        }
+        BackendCommand::PreferencesSet(changes) => {
+            json!({"ok":true,"settings":crate::preferences::change(&changes)?})
+        }
         BackendCommand::StateRead => private_document_read(&state_path()),
         BackendCommand::StateWrite(options) => {
             private_document_write(&state_path(), &options.document)

@@ -30,7 +30,7 @@ Item {
   readonly property int tabEdgeZone: Style.space(10)
   readonly property int edgeOpenZone: Style.space(56)
   readonly property int dragThreshold: 6
-  readonly property int moduleContractVersion: 2
+  readonly property int moduleContractVersion: 3
 
   property alias registry: registry
   property alias layout: persisted.layout
@@ -904,13 +904,12 @@ Item {
 
   FileView {
     id: layoutFileSignal
+    preload: false
     path: host.layoutPath
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onLoaded: host.requestLayoutRead()
-    onLoadFailed: host.requestLayoutRead()
-    onFileChanged: reload()
+    onFileChanged: { reload(); host.requestLayoutRead() }
   }
 
   Timer {

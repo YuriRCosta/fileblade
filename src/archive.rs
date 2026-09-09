@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+mod budget;
+
 pub const ARCHIVE_EXTENSIONS: &[&str] = &[
     "zip", "tar", "tgz", "tbz2", "txz", "tzst", "gz", "bz2", "xz", "zst", "7z", "rar",
 ];
@@ -35,6 +37,7 @@ fn run(arguments: Vec<String>, cwd: &Path, cancelled: &AtomicBool) -> AppResult<
         .env("LC_ALL", "C.UTF-8")
         .timeout(ARCHIVE_TIMEOUT)
         .limits(ARCHIVE_OUTPUT_BYTES, 64 * 1024)
+        .resource_limits(budget::EXPANDED_BYTES, 1024 * 1024 * 1024)
         .run_cancellable(cancelled)?;
     if !output.status.success() {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -215,13 +218,6 @@ pub fn extract(
                 )));
             }
         }
-        if existed && merge {
-            let directory = secure::open_directory_nofollow(&target)?;
-            let cwd = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
-            changed = true;
-            run(vec!["-xf".into(), pinned], &cwd, cancelled)?;
-            return Ok(());
-        }
         let stage = target_parent.path.join(format!(
             ".fileblade-partial-{}",
             uuid::Uuid::new_v4().simple()
@@ -237,11 +233,31 @@ pub fn extract(
             }
         };
         let extracted = (|| -> AppResult<()> {
+            let snapshot = secure::create_file_noreplace(&stage.join("archive.tar"), 0o600)?;
+            let normalized = format!("/proc/{}/fd/{}", std::process::id(), snapshot.as_raw_fd());
+            run(
+                vec![
+                    "-cf".into(),
+                    normalized.clone(),
+                    "--format=pax".into(),
+                    format!("@{pinned}"),
+                ],
+                &stage,
+                cancelled,
+            )?;
+            budget::check(&mut std::fs::File::open(&normalized)?)?;
+            if existed && merge {
+                let directory = secure::open_directory_nofollow(&target)?;
+                let cwd = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
+                changed = true;
+                run(vec!["-xf".into(), normalized], &cwd, cancelled)?;
+                return Ok(());
+            }
             let item = stage.join("item");
             secure::create_directory_noreplace(&item, 0o777)?;
             let extraction_root = item.join(target.strip_prefix(&published_path).unwrap());
             secure::ensure_directories(&extraction_root, 0o777)?;
-            run(vec!["-xf".into(), pinned], &extraction_root, cancelled)?;
+            run(vec!["-xf".into(), normalized], &extraction_root, cancelled)?;
             if cancelled.load(Ordering::Relaxed) {
                 return Err(AppError::Cancelled);
             }

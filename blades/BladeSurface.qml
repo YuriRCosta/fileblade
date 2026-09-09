@@ -129,6 +129,7 @@ PanelWindow {
     var revision = pendingFocusRevision
     if (!ownsFocus(revision)) return
     takeKeyboardFocus()
+    if (trashConsent.visible) { trashConsent.forceActiveFocus(); return }
     var target = slotItem(index)
     if (!target && surface.slots.length > 0) target = slotItem(0)
     Qt.callLater(function() {
@@ -335,6 +336,7 @@ PanelWindow {
 
     FocusScope {
       id: scope
+      enabled: !trashConsent.visible
       anchors.fill: parent
       anchors.leftMargin: surface.isRight ? Style.space(9) : 0
       anchors.rightMargin: surface.isRight ? 0 : Style.space(9)
@@ -381,6 +383,13 @@ PanelWindow {
       }
     }
 
+    PluginUi.TrashConsent {
+      id: trashConsent
+      anchors.fill: parent
+      preferences: surface.host.service.preferences
+      presented: surface.edge === "left" && surface.bladeOpen && surface.screen === surface.host.referenceScreen(null, "left")
+    }
+
     Rectangle {
       anchors.top: parent.top
       anchors.bottom: parent.bottom
@@ -392,6 +401,7 @@ PanelWindow {
 
     Rectangle {
       id: footer
+      enabled: !trashConsent.visible
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right

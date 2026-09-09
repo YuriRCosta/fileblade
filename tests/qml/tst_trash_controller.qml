@@ -16,6 +16,7 @@ TestCase {
   Item {
     id: fakeService
     property bool stateReady: false
+    property bool trashCleanupConsent: false
     property int trashRetentionDays: 0
     property double trashLastClearedAt: 0
     property var history: history
@@ -76,6 +77,9 @@ TestCase {
   }
 
   function init() {
+    fakeService.stateReady = false
+    fakeService.trashCleanupConsent = false
+    fakeService.trashRetentionDays = 0
     requests = []
     fakeService.pendingCallback = null
     controller.listRequestId = ""
@@ -89,6 +93,17 @@ TestCase {
     inserted.clear()
     removed.clear()
     changed.clear()
+  }
+
+  function test_cleanup_requires_consent_even_with_an_old_retention_value() {
+    fakeService.stateReady = true
+    fakeService.trashRetentionDays = 7
+    compare(controller.pruneExpired(), "disabled")
+    compare(requests.length, 0)
+    fakeService.trashCleanupConsent = true
+    controller.pruneExpired()
+    compare(requests[0].name, "trash-prune")
+    compare(requests[0].arguments, ["--days", "7"])
   }
 
   function test_identical_refresh_keeps_existing_rows() {

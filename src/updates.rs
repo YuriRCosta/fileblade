@@ -10,7 +10,7 @@ use std::time::Duration;
 
 const MAX_REPOSITORIES: usize = 16;
 const MAX_SUBJECTS: usize = 20;
-const FETCH_TIMEOUT: Duration = Duration::from_secs(20);
+const REMOTE_TIMEOUT: Duration = Duration::from_secs(20);
 const LOCAL_TIMEOUT: Duration = Duration::from_secs(5);
 const OUTPUT_LIMIT: usize = 64 * 1024;
 
@@ -60,6 +60,8 @@ fn git(
         .env("LC_ALL", "C")
         .timeout(timeout)
         .limits(OUTPUT_LIMIT, 16 * 1024)
+        .stop_on_output_limit()
+        .resource_limits(16 * 1024 * 1024, 512 * 1024 * 1024)
         .run_cancellable(cancelled)
 }
 
@@ -79,18 +81,19 @@ fn manifest_version(text: &str) -> String {
 }
 
 fn current_manifest_version(path: &Path) -> String {
-    std::fs::read_to_string(path.join("manifest.json"))
+    crate::secure::read_bounded_nofollow(&path.join("manifest.json"), 64 * 1024)
+        .ok()
+        .flatten()
+        .and_then(|bytes| String::from_utf8(bytes).ok())
         .map(|text| manifest_version(&text))
         .unwrap_or_default()
 }
 
 struct Standing {
-    behind: u64,
     ahead: u64,
     dirty: bool,
     head: String,
     upstream: String,
-    upstream_head: String,
 }
 
 fn standing(path: &Path, cancelled: &AtomicBool) -> Result<Standing, String> {
@@ -100,18 +103,20 @@ fn standing(path: &Path, cancelled: &AtomicBool) -> Result<Standing, String> {
         cancelled,
     )
     .filter(|value| !value.is_empty())
-    .ok_or_else(|| "no upstream branch".to_string())?;
-    let head = git_text(path, &["rev-parse", "HEAD"], cancelled).unwrap_or_default();
-    let upstream_head = git_text(path, &["rev-parse", "@{u}"], cancelled).unwrap_or_default();
-    let counts = git_text(
+    .unwrap_or_else(|| "origin/HEAD".into());
+    let head = git_text(path, &["rev-parse", "HEAD"], cancelled).ok_or("unable to read HEAD")?;
+    let ahead = git_text(
         path,
-        &["rev-list", "--left-right", "--count", "HEAD...@{u}"],
+        &[
+            "rev-list",
+            "--left-right",
+            "--count",
+            &format!("HEAD...{upstream}"),
+        ],
         cancelled,
     )
-    .ok_or_else(|| "unable to compare with upstream".to_string())?;
-    let mut parts = counts.split_whitespace();
-    let ahead = parts.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-    let behind = parts.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    .and_then(|text| text.split_whitespace().next()?.parse().ok())
+    .unwrap_or(0);
     let status = git(
         path,
         &["status", "--porcelain=v1", "-z", "--untracked-files=no"],
@@ -123,44 +128,64 @@ fn standing(path: &Path, cancelled: &AtomicBool) -> Result<Standing, String> {
         return Err("unable to read the working tree status".to_string());
     }
     Ok(Standing {
-        behind,
         ahead,
         dirty: !status.stdout.is_empty(),
         head,
         upstream,
-        upstream_head,
     })
 }
 
-fn fetch_upstream(root: &Path, cancelled: &AtomicBool) -> Result<(), String> {
-    let upstream = git_text(
+fn remote_head(root: &Path, cancelled: &AtomicBool) -> Result<String, String> {
+    let branch = git_text(
         root,
-        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        &["symbolic-ref", "--quiet", "--short", "HEAD"],
         cancelled,
     )
-    .filter(|value| !value.is_empty())
-    .ok_or_else(|| "no upstream branch".to_string())?;
-    let remote = upstream
-        .split_once('/')
-        .map(|(remote, _)| remote.to_string())
-        .unwrap_or_else(|| "origin".to_string());
-    match git(
+    .filter(|value| !value.is_empty());
+    let (remote, reference) = if let Some(branch) = branch {
+        let remote = git_text(
+            root,
+            &["config", "--get", &format!("branch.{branch}.remote")],
+            cancelled,
+        )
+        .filter(|value| !value.is_empty() && !value.starts_with('-'))
+        .ok_or("no upstream branch")?;
+        let reference = git_text(
+            root,
+            &["config", "--get", &format!("branch.{branch}.merge")],
+            cancelled,
+        )
+        .filter(|value| value.starts_with("refs/heads/") && value.len() <= 1024)
+        .ok_or("no upstream branch")?;
+        (remote, reference)
+    } else {
+        ("origin".into(), "HEAD".into())
+    };
+    let output = git(
         root,
-        &["fetch", "--quiet", "--no-tags", &remote],
-        FETCH_TIMEOUT,
+        &["ls-remote", "--exit-code", "--", &remote, &reference],
+        REMOTE_TIMEOUT,
         cancelled,
-    ) {
-        Ok(output) if output.status.success() => Ok(()),
-        Ok(output) => {
-            let text = String::from_utf8_lossy(&output.stderr);
-            let line = text.lines().next().unwrap_or("fetch failed");
-            Err(format!(
-                "fetch failed: {}",
-                line.chars().take(160).collect::<String>()
-            ))
-        }
-        Err(error) => Err(format!("fetch failed: {error}")),
+    )
+    .map_err(|error| format!("remote check failed: {error}"))?;
+    if !output.status.success() || output.stdout_truncated || output.stderr_truncated {
+        return Err("remote check failed or exceeded its output limit".to_string());
     }
+    let text =
+        std::str::from_utf8(&output.stdout).map_err(|_| "invalid remote response".to_string())?;
+    let mut lines = text.lines();
+    let (head, name) = lines
+        .next()
+        .and_then(|line| line.split_once('\t'))
+        .ok_or_else(|| "upstream branch unavailable".to_string())?;
+    if lines.next().is_some()
+        || name != reference
+        || !matches!(head.len(), 40 | 64)
+        || !head.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("invalid remote response".to_string());
+    }
+    Ok(head.to_ascii_lowercase())
 }
 
 fn repository_root(path: &Path, cancelled: &AtomicBool) -> Result<PathBuf, String> {
@@ -210,13 +235,12 @@ pub fn check(specs: &[RepositorySpec], core: &str, cancelled: &AtomicBool) -> Va
                 continue;
             }
         };
-        let fetch_error = match fetch_upstream(&root, cancelled) {
-            Ok(()) => String::new(),
-            Err(error) if error == "no upstream branch" => {
+        let remote_head = match remote_head(&root, cancelled) {
+            Ok(head) => head,
+            Err(error) => {
                 repositories.push(failure(spec, error));
                 continue;
             }
-            Err(error) => error,
         };
         let standing = match standing(&root, cancelled) {
             Ok(standing) => standing,
@@ -225,9 +249,33 @@ pub fn check(specs: &[RepositorySpec], core: &str, cancelled: &AtomicBool) -> Va
                 continue;
             }
         };
+        let comparison = git_text(
+            &root,
+            &[
+                "rev-list",
+                "--left-right",
+                "--count",
+                &format!("HEAD...{remote_head}"),
+            ],
+            cancelled,
+        )
+        .and_then(|text| {
+            let mut fields = text.split_whitespace();
+            Some((
+                fields.next()?.parse::<u64>().ok()?,
+                fields.next()?.parse::<u64>().ok()?,
+            ))
+        });
+        let ahead = comparison.map_or(standing.ahead, |counts| counts.0);
+        let behind = comparison.map(|counts| counts.1);
         let subjects: Vec<String> = git_text(
             &root,
-            &["log", "--format=%s", "--max-count=20", "HEAD..@{u}"],
+            &[
+                "log",
+                "--format=%s",
+                "--max-count=20",
+                &format!("HEAD..{remote_head}"),
+            ],
             cancelled,
         )
         .map(|text| {
@@ -238,25 +286,29 @@ pub fn check(specs: &[RepositorySpec], core: &str, cancelled: &AtomicBool) -> Va
         })
         .unwrap_or_default();
         let current_version = current_manifest_version(&root);
-        let upstream_version = git_text(&root, &["show", "@{u}:manifest.json"], cancelled)
-            .map(|text| manifest_version(&text))
-            .unwrap_or_default();
+        let upstream_version = git_text(
+            &root,
+            &["show", &format!("{remote_head}:manifest.json")],
+            cancelled,
+        )
+        .map(|text| manifest_version(&text))
+        .unwrap_or_default();
         let is_core = spec.id == core;
         let backend_stale = is_core && current_version != env!("CARGO_PKG_VERSION");
-        let updatable =
-            fetch_error.is_empty() && standing.behind > 0 && standing.ahead == 0 && !standing.dirty;
+        let updatable = remote_head != standing.head && ahead == 0 && !standing.dirty;
         available |= updatable;
         repositories.push(json!({
             "id": spec.id,
             "path": path_text(&root),
-            "ok": fetch_error.is_empty(),
-            "error": fetch_error,
-            "behind": standing.behind,
-            "ahead": standing.ahead,
+            "ok": true,
+            "error": "",
+            "comparison_known": comparison.is_some(),
+            "behind": behind,
+            "ahead": ahead,
             "dirty": standing.dirty,
             "head": standing.head,
             "upstream": standing.upstream,
-            "upstream_head": standing.upstream_head,
+            "upstream_head": remote_head,
             "current_version": current_version,
             "upstream_version": upstream_version,
             "subjects": subjects,

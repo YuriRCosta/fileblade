@@ -1,8 +1,12 @@
 # Keybindings
 
+This file was written by an agent.
+
 Create `~/.config/omarchy/fileblade/keybindings.json` (or
 `$XDG_CONFIG_HOME/omarchy/fileblade/keybindings.json`). It is user-owned:
-FileBlade reads it but never rewrites it. Changes reload automatically.
+FileBlade preserves your bindings and adds schema `version` and `filebladeVersion`
+metadata through the bounded backend. Unsupported versions are preserved and refused.
+Changes reload automatically.
 
 ```json
 {

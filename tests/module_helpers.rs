@@ -1,3 +1,5 @@
+#[path = "common/plugin_environment.rs"]
+mod plugin_environment;
 use fileblade::{
     AppError,
     module_helpers::{self, Request},
@@ -18,6 +20,7 @@ impl Fixture {
     fn new(body: &str) -> Self {
         let root = tempfile::tempdir().unwrap();
         fs::create_dir(root.path().join("bin")).unwrap();
+        plugin_environment::install(root.path(), "test.inventory");
         let fixture = Self { root };
         fixture.script(body);
         fixture.manifest(json!({"id":"inventory", "entry":"bin/helper", "read":["list"], "write":["apply"], "timeoutMs":1000}));
@@ -40,18 +43,64 @@ impl Fixture {
         input: Option<&str>,
         write: bool,
     ) -> fileblade::AppResult<Value> {
-        module_helpers::run(
-            &Request {
-                provider: "test.inventory",
-                directory: self.root.path().to_str().unwrap(),
-                helper: "inventory",
-                method,
-                arguments,
-                input,
-                write,
-            },
-            &AtomicBool::new(false),
-        )
+        self.execute(&Request {
+            provider: "test.inventory",
+            directory: self.root.path().to_str().unwrap(),
+            helper: "inventory",
+            method,
+            arguments,
+            input,
+            write,
+        })
+    }
+    fn command(&self) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+        plugin_environment::configure(&mut command, self.root.path());
+        command.env("XDG_STATE_HOME", self.root.path().join("state"));
+        command
+    }
+    fn execute(&self, request: &Request<'_>) -> fileblade::AppResult<Value> {
+        let mut child = self
+            .command()
+            .args(["serve", "--no-recover"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        writeln!(input, "{}", json!({"v":1,"type":"hello"})).unwrap();
+        let mut line = String::new();
+        output.read_line(&mut line).unwrap();
+        let args = json!([
+            "--provider",
+            request.provider,
+            "--plugin-dir",
+            request.directory,
+            "--helper",
+            request.helper,
+            "--method",
+            request.method,
+            "--arguments",
+            request.arguments
+        ]);
+        let mut frame = json!({"v":1,"type":"request","id":"test","generation":1,"command":if request.write {"helper-write"} else {"helper-read"},"arguments":args});
+        if let Some(text) = request.input {
+            frame["input"] = json!(text)
+        }
+        writeln!(input, "{frame}").unwrap();
+        line.clear();
+        output.read_line(&mut line).unwrap();
+        drop(input);
+        assert!(child.wait().unwrap().success());
+        let response: Value = serde_json::from_str(&line).unwrap();
+        if response["ok"] == true {
+            Ok(response["payload"].clone())
+        } else {
+            Err(AppError::invalid(
+                response["error"].as_str().unwrap_or("helper refused"),
+            ))
+        }
     }
 }
 
@@ -159,8 +208,8 @@ fn native_provider_paths_and_closed_private_input_work() {
         .path()
         .join(std::ffi::OsStr::from_bytes(b"native-\xff"));
     std::os::unix::fs::symlink(fixture.root.path(), &link).unwrap();
-    let result = module_helpers::run(
-        &Request {
+    let result = fixture
+        .execute(&Request {
             provider: "test.inventory",
             directory: &fileblade::common::path_text(&link),
             helper: "inventory",
@@ -168,10 +217,8 @@ fn native_provider_paths_and_closed_private_input_work() {
             arguments: "[\"--project\",\"file:///project-%FF\"]",
             input: Some("private\nmessage"),
             write: true,
-        },
-        &AtomicBool::new(false),
-    )
-    .unwrap();
+        })
+        .unwrap();
     assert_eq!(result["input"], "private\nmessage");
     assert_eq!(
         result["args"],
@@ -212,7 +259,8 @@ fn resident_input_is_private_and_not_accepted_for_unrelated_commands() {
     let fixture = Fixture::new(
         "import json,sys\nprint(json.dumps({'ok':True,'input':sys.stdin.read(),'argv':sys.argv}))",
     );
-    let mut server = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let mut server = fixture
+        .command()
         .args(["serve", "--no-recover"])
         .env("XDG_STATE_HOME", fixture.root.path().join("state"))
         .stdin(Stdio::piped())
@@ -261,4 +309,21 @@ fn resident_input_is_private_and_not_accepted_for_unrelated_commands() {
     }
     drop(input);
     assert!(server.wait().unwrap().success());
+}
+
+#[test]
+fn disabled_or_unknown_activation_never_starts_a_helper() {
+    let fixture = Fixture::new("from pathlib import Path\nPath('ran').touch()\nprint('{}')");
+    for state in [r#"[{"id":"test.inventory","enabled":false}]"#, "not json"] {
+        fs::write(fixture.root.path().join("enabled.json"), state).unwrap();
+        assert!(
+            fixture
+                .request("list", "[]", None, false)
+                .unwrap_err()
+                .to_string()
+                .contains("explicitly enabled")
+        );
+        assert!(fixture.request("apply", "[]", None, true).is_err());
+        assert!(!fixture.root.path().join("ran").exists());
+    }
 }

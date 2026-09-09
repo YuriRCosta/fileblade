@@ -35,7 +35,7 @@ Item {
     fileWatch.reload()
     if (requestId) service.cancelBackendRequest(requestId, generation, true)
     var current = ++generation
-    requestId = service.backendRequest("read-text", ["--path", path, "--limit", "65536"], current, function(response) {
+    requestId = service.backendRequest("keybindings-prepare", [], current, function(response) {
       if (current !== root.generation) return
       root.requestId = ""
       var missing = response && response.ok === false && /\(os error 2\)$/.test(String(response.error || ""))

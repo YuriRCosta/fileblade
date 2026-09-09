@@ -18,6 +18,27 @@ Item {
   readonly property bool filtering: query.trim() !== ""
   property var drag: null
   property var dropTarget: null
+  property int pendingRetentionDays: 0
+
+  function confirmTrashRetention(days) {
+    pendingRetentionDays = days
+    retentionConsent.open("Enable automatic Trash cleanup?\nPermanently delete items older than " + days + " days from your shared desktop Trash, including items trashed by other apps, and FileBlade artifact bins. Cleanup also runs while blades are closed. This cannot be undone.",
+      [{ key: "cancel", label: "Cancel" }, { key: "enable", label: "Enable cleanup", danger: true }])
+  }
+
+  PluginUi.ActionDialog {
+    id: retentionConsent
+    anchors.fill: parent
+    z: 1000
+    onChosen: function(key) { if (key === "enable") root.host.service.setTrashRetentionDays(root.pendingRetentionDays, true) }
+  }
+
+  PluginUi.ActionDialog {
+    id: managementConsent
+    anchors.fill: parent
+    z: 1000
+    onChosen: function(key) { if (key === "enable") root.host.service.preferences.setAgentManagement(true) }
+  }
 
   function beginTabDrag(edge, slotIndex, tabIndex, title, glyph, x, y, grabX, grabY, width) {
     drag = { edge: edge, slotIndex: slotIndex, tabIndex: tabIndex, title: title, glyph: glyph, x: x, y: y, grabX: grabX, grabY: grabY, width: width }
@@ -700,7 +721,8 @@ Item {
           id: general
           readonly property bool animateShown: root.matches("general animate blades motion")
           readonly property bool monitorsShown: root.matches("general monitors screens display active primary all")
-          readonly property bool shown: animateShown || monitorsShown
+          readonly property bool managementShown: root.matches("general manage agent files skills memory permissions")
+          readonly property bool shown: animateShown || monitorsShown || managementShown
           width: parent.width
           spacing: Style.space(5)
           visible: shown
@@ -708,6 +730,19 @@ Item {
           Divider { visible: bladesBlock.shown }
 
           SectionLabel { text: "GENERAL" }
+
+          PluginUi.ToggleRow {
+            width: parent.width
+            visible: general.managementShown
+            glyph: "󰚩"
+            label: "Manage agent files"
+            checked: root.host.service.agentManagementEnabled
+            onToggled: {
+              if (checked) root.host.service.preferences.setAgentManagement(false)
+              else managementConsent.open("Allow Skills and Memory changes?\nFileBlade can create or remove agent links and disable, trash or restore skill folders and instruction files. These files can change what coding agents do. Browsing stays available when this is off.",
+                [{ key: "cancel", label: "Cancel" }, { key: "enable", label: "Allow management" }])
+            }
+          }
 
           PluginUi.ToggleRow {
             width: parent.width

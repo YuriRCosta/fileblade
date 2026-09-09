@@ -33,7 +33,7 @@ Item {
   property double nextCleanupAt: 0
   readonly property string lastClearedText: formatTimestamp(service.trashLastClearedAt, "Never")
   readonly property string nextCleanupText: {
-    if (service.trashRetentionDays <= 0) return "Off"
+    if (service.trashCleanupConsent !== true || service.trashRetentionDays <= 0) return "Off"
     if (nextCleanupAt <= 0) return "Nothing scheduled"
     if (nextCleanupAt <= Date.now()) return "Due now"
     return formatTimestamp(nextCleanupAt, "Nothing scheduled")
@@ -60,7 +60,7 @@ Item {
 
   function cleanupDeadline() {
     var days = Number(service.trashRetentionDays) || 0
-    if (days <= 0) return 0
+    if (service.trashCleanupConsent !== true || days <= 0) return 0
     var earliest = 0
     for (var index = 0; index < trashModel.count; index++) {
       var deletedAt = Date.parse(String(trashModel.get(index).deletedAt || ""))
@@ -262,7 +262,7 @@ Item {
   }
 
   function pruneExpired() {
-    if (!service.stateReady || service.trashRetentionDays <= 0) return "disabled"
+    if (!service.stateReady || service.trashCleanupConsent !== true || service.trashRetentionDays <= 0) return "disabled"
     if (operationRequestId) {
       retentionSchedule.interval = 60000
       retentionSchedule.restart()
@@ -335,7 +335,7 @@ Item {
   Timer {
     interval: 3600000
     repeat: true
-    running: service.stateReady && service.trashRetentionDays > 0
+    running: service.stateReady && service.trashCleanupConsent === true && service.trashRetentionDays > 0
     onTriggered: controller.pruneExpired()
   }
 
@@ -350,12 +350,12 @@ Item {
   Connections {
     target: service
     function onStateReadyChanged() {
-      if (service.stateReady && service.trashRetentionDays > 0) retentionSchedule.restart()
+      if (service.stateReady && service.trashCleanupConsent === true && service.trashRetentionDays > 0) retentionSchedule.restart()
     }
     function onTrashRetentionDaysChanged() {
       controller.nextCleanupAt = controller.cleanupDeadline()
       retentionSchedule.stop()
-      if (service.stateReady && service.trashRetentionDays > 0) retentionSchedule.restart()
+      if (service.stateReady && service.trashCleanupConsent === true && service.trashRetentionDays > 0) retentionSchedule.restart()
     }
   }
 

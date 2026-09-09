@@ -41,13 +41,18 @@ fn install_mock(scripts: &std::path::Path) {
 import json, os, pathlib, shutil, sys
 home = pathlib.Path(os.environ['HOME'])
 verb = pathlib.Path(sys.argv[0]).name
+if verb == 'git':
+    while sys.argv[1:2] == ['-c']:
+        del sys.argv[1:3]
 plugins = home / '.config/omarchy/plugins'
 plugins.mkdir(parents=True, exist_ok=True)
 with (home / 'calls').open('a') as log:
     log.write(' '.join([verb] + sys.argv[1:]) + '\n')
 if verb == 'git':
-    if sys.argv[1:3] == ['clone', '--']:
-        url, dest = sys.argv[3], pathlib.Path(sys.argv[4])
+    if sys.argv[1:2] == ['clone']:
+        assert '--no-checkout' in sys.argv and '--depth=1' in sys.argv and '--template=' in sys.argv
+        assert '--revision' in sys.argv
+        url, dest = sys.argv[-2], pathlib.Path(sys.argv[-1])
         name = url.split('/')[-1].removesuffix('.git')
         if name == 'fileblade-mcp' and not (home / 'network-restored').exists():
             print('network unavailable', file=sys.stderr)
@@ -58,6 +63,7 @@ if verb == 'git':
         (dest / 'manifest.json').write_text(json.dumps({'id': 'data-goblin.' + name}))
         head = (home / 'branch-head').read_text().strip() if (home / 'branch-head').exists() else 'f' * 40
         (dest / '.head').write_text(head)
+        (dest / '.origin').write_text(url)
         (dest / '.available').write_text((home / 'available-commits').read_text() if (home / 'available-commits').exists() else '')
         sys.exit(0)
     here = pathlib.Path.cwd()
@@ -68,8 +74,17 @@ if verb == 'git':
             print('bad revision', file=sys.stderr)
             sys.exit(128)
         print(wanted)
-    elif sys.argv[1:3] == ['reset', '--hard']:
-        (here / '.head').write_text(sys.argv[3])
+    elif sys.argv[1:4] == ['checkout', '--detach', '--force']:
+        (here / '.head').write_text(sys.argv[4])
+    elif sys.argv[1:2] == ['ls-tree']:
+        print('100644 blob ' + 'a' * 40 + ' 80\tmanifest.json\0', end='')
+    elif sys.argv[1:] == ['rev-parse', '--show-toplevel']:
+        print(here)
+    elif sys.argv[1:] == ['remote', 'get-url', 'origin']:
+        print((here / '.origin').read_text().strip())
+    elif sys.argv[1:2] == ['status']:
+        if (here / '.dirty').exists():
+            print(' M manifest.json')
     elif sys.argv[1:] == ['rev-parse', 'HEAD']:
         print((here / '.head').read_text().strip())
     else:
@@ -168,7 +183,7 @@ fn install_stages_every_extension_before_any_reaches_the_plugins_directory() {
             .lines()
             .filter(|line| line.starts_with("omarchy-plugin-validate "))
             .count(),
-        4
+        8
     );
 }
 
@@ -187,6 +202,16 @@ fn batch_recovers_a_disabled_clone_and_retries_only_missing_repositories() {
     fs::write(
         memory.join("manifest.json"),
         r#"{"id":"data-goblin.fileblade-memory"}"#,
+    )
+    .unwrap();
+    fs::write(
+        memory.join(".head"),
+        fileblade::plugin_install::EXTENSIONS[0].commit,
+    )
+    .unwrap();
+    fs::write(
+        memory.join(".origin"),
+        fileblade::plugin_install::EXTENSIONS[0].url,
     )
     .unwrap();
     assert_eq!(
@@ -269,7 +294,11 @@ fn batch_recovers_a_disabled_clone_and_retries_only_missing_repositories() {
             .count(),
         2
     );
-    assert!(!calls.contains("fileblade-memory.git"));
+    assert!(
+        !calls
+            .lines()
+            .any(|line| line.starts_with("git clone ") && line.contains("fileblade-memory.git"))
+    );
     assert!(!calls.contains("fileblade-git"));
 }
 
@@ -400,4 +429,76 @@ fn the_installed_tree_is_the_pinned_commit_not_the_branch_head() {
             "{id} was left at the branch head instead of its pin"
         );
     }
+}
+
+#[test]
+fn welcome_preserves_an_existing_checkout_with_local_changes_or_a_different_pin() {
+    for dirty in [false, true] {
+        let temporary = tempfile::tempdir().unwrap();
+        let scripts = temporary.path().join("bin");
+        std::fs::create_dir(&scripts).unwrap();
+        install_mock(&scripts);
+        publish_pins(temporary.path());
+        std::fs::write(temporary.path().join("network-restored"), "").unwrap();
+        let memory = temporary
+            .path()
+            .join(".config/omarchy/plugins/data-goblin.fileblade-memory");
+        std::fs::create_dir_all(&memory).unwrap();
+        let extension = &fileblade::plugin_install::EXTENSIONS[0];
+        let head = if dirty {
+            extension.commit
+        } else {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
+        std::fs::write(memory.join(".head"), head).unwrap();
+        std::fs::write(memory.join(".origin"), extension.url).unwrap();
+        std::fs::write(memory.join("manifest.json"), "local content").unwrap();
+        if dirty {
+            std::fs::write(memory.join(".dirty"), "").unwrap();
+        }
+        let result = run_backend(temporary.path(), &scripts, "plugin-install");
+        assert_eq!(result["state"], "failed", "{result}");
+        assert!(
+            result["message"]
+                .as_str()
+                .unwrap()
+                .contains("was preserved")
+        );
+        assert_eq!(std::fs::read_to_string(memory.join(".head")).unwrap(), head);
+        assert_eq!(
+            std::fs::read_to_string(memory.join("manifest.json")).unwrap(),
+            "local content"
+        );
+        assert!(!memory.join("enabled").exists());
+        assert!(!temporary.path().join("present-at-clone").exists());
+    }
+}
+
+#[test]
+fn welcome_never_cleans_an_unrelated_directory_with_the_old_stage_name() {
+    let temporary = tempfile::tempdir().unwrap();
+    let scripts = temporary.path().join("bin");
+    std::fs::create_dir(&scripts).unwrap();
+    install_mock(&scripts);
+    publish_pins(temporary.path());
+    let foreign = temporary
+        .path()
+        .join(".config/omarchy/.fileblade-extension-stage");
+    std::fs::create_dir_all(&foreign).unwrap();
+    std::fs::write(foreign.join("keep"), "user data").unwrap();
+    let result = run_backend(temporary.path(), &scripts, "plugin-install");
+    assert_eq!(result["state"], "failed");
+    assert_eq!(
+        std::fs::read_to_string(foreign.join("keep")).unwrap(),
+        "user data"
+    );
+    assert!(
+        !std::fs::read_dir(foreign.parent().unwrap())
+            .unwrap()
+            .any(|entry| entry
+                .unwrap()
+                .file_name()
+                .as_encoded_bytes()
+                .starts_with(b".fileblade-partial-"))
+    );
 }

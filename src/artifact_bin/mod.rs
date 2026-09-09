@@ -115,6 +115,14 @@ struct Manifest {
         skip_serializing_if = "Option::is_none"
     )]
     restore_helper: Option<crate::module_helpers::Route>,
+    #[serde(
+        default,
+        rename = "helperRecordId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    helper_record_id: Option<String>,
+    #[serde(default, rename = "helperRestored")]
+    helper_restored: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     position: Option<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

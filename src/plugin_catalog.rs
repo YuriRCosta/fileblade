@@ -52,12 +52,14 @@ pub fn catalog() -> crate::AppResult<Value> {
                 match entry {
                     Ok(entry) => entries.push(entry.path()),
                     Err(error) => {
+                        truncated = true;
                         note(&mut diagnostics, "plugins", &error.to_string());
                     }
                 }
             }
         }
         Err(error) => {
+            truncated = true;
             note(&mut diagnostics, &path_text(&plugins), &error.to_string());
         }
     }
@@ -296,4 +298,27 @@ fn bounded(value: &str, limit: usize) -> String {
         .filter(|c| !c.is_control())
         .take(limit)
         .collect()
+}
+
+pub fn require_enabled(provider: &str, directory: &std::path::Path) -> crate::AppResult<()> {
+    let snapshot = catalog()?;
+    let enabled = snapshot["complete"] == true
+        && snapshot["activation"] == "known"
+        && snapshot["providers"].as_array().is_some_and(|rows| {
+            rows.iter().any(|row| {
+                row["id"] == provider
+                    && row["enabled"] == true
+                    && row["dir"]
+                        .as_str()
+                        .and_then(|path| crate::common::parse_path(path).ok())
+                        .is_some_and(|path| path == directory)
+            })
+        });
+    if enabled {
+        Ok(())
+    } else {
+        Err(crate::AppError::invalid(
+            "the helper provider must be installed and explicitly enabled; enable its Omarchy plugin and retry",
+        ))
+    }
 }
