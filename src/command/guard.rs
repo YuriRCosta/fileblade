@@ -13,6 +13,8 @@ unsafe extern "C" {
 
 #[derive(Clone, Copy)]
 pub(super) struct Controls {
+    pub file_limit: Option<u64>,
+    pub memory_limit: Option<u64>,
     pub cancel: RawFd,
     pub result: RawFd,
     pub owner: RawFd,
@@ -50,6 +52,20 @@ pub(super) unsafe fn enter(controls: Controls) -> io::Result<()> {
             return Err(io::Error::last_os_error());
         }
         if child == 0 {
+            for (resource, value) in [
+                (libc::RLIMIT_FSIZE, controls.file_limit),
+                (libc::RLIMIT_AS, controls.memory_limit),
+            ] {
+                if let Some(value) = value {
+                    let limit = libc::rlimit {
+                        rlim_cur: value as _,
+                        rlim_max: value as _,
+                    };
+                    if libc::setrlimit(resource, &limit) != 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                }
+            }
             if libc::setpgid(0, 0) != 0 {
                 return Err(io::Error::last_os_error());
             }

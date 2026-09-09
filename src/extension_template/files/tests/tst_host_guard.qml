@@ -28,7 +28,9 @@ TestCase {
     var plan = HostGuard.plan(snapshot("disabled"), self.id)
     verify(plan.show)
     compare(plan.action, "Enable")
-    verify(plan.command[2].indexOf("omarchy plugin enable data-goblin.fileblade") >= 0)
+    compare(plan.command.slice(0, 3), ["timeout", "--kill-after=1s", "20s"])
+    verify(plan.command.join(" ").indexOf("$(omarchy") === -1)
+    verify(plan.command.join(" ").indexOf("omarchy plugin enable data-goblin.fileblade") >= 0)
   }
 
   function test_starting_or_unknown_waits_rather_than_claiming_it_is_absent() {

@@ -295,9 +295,11 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
             "missing resident {command} integration"
         );
     }
-    assert!(state.contains("property int trashRetentionDays: 7"));
+    let preferences = text(&root.join("controllers/PreferencesController.qml"));
+    assert!(preferences.contains("trashAnswered ? settings.trashRetentionDays : 0"));
+    assert!(trash.contains("service.trashCleanupConsent"));
     assert!(state.contains("property double trashLastClearedAt: 0"));
-    assert!(state.contains("trashRetentionDays: trashRetentionDays"));
+    assert!(!state.contains("trashRetentionDays: trashRetentionDays"));
     let artifact_bin = text(&root.join("ui/ArtifactBin.qml"));
     assert!(artifact_bin.contains("property var context: null"));
     assert!(artifact_bin.contains("bin.context.hostWindow.actionKeys"));

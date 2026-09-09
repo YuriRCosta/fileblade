@@ -126,7 +126,18 @@ fn recover_partial(record: &Value) -> std::io::Result<Outcome> {
     if !name.starts_with(".fileblade-partial-") {
         return Ok(Outcome::Done);
     }
-    secure::remove_path(&partial)?;
+    match (record["dev"].as_u64(), record["ino"].as_u64()) {
+        (Some(dev), Some(ino)) => secure::remove_path_matching(
+            &partial,
+            secure::EntryIdentity {
+                dev,
+                ino,
+                kind: secure::EntryKind::Directory,
+            },
+        )?,
+        (None, None) => secure::remove_path(&partial)?,
+        _ => return Err(std::io::Error::other("Incomplete staging identity")),
+    }
     Ok(Outcome::Removed(crate::common::path_text(&partial)))
 }
 

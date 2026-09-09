@@ -1,3 +1,5 @@
+#[path = "common/plugin_environment.rs"]
+mod plugin_environment;
 use serde_json::{Value, json};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -11,8 +13,9 @@ impl Fixture {
     fn new() -> Self {
         let root = tempfile::tempdir().unwrap();
         fs::create_dir(root.path().join("bin")).unwrap();
+        plugin_environment::install(root.path(), "test.recovery");
         fs::write(root.path().join("manifest.json"), json!({"id":"test.recovery", "extensions":{"data-goblin.fileblade/helper":[{
-            "id":"inventory", "entry":"bin/helper", "read":["prepare-remove"], "write":["remove-prepared","restore"], "timeoutMs":500
+            "id":"inventory", "entry":"bin/helper", "read":[], "write":["prepare-remove","remove-prepared","restore","discard"], "timeoutMs":500
         }]}}).to_string()).unwrap();
         let script = root.path().join("bin/helper");
         fs::write(&script, r##"#!/usr/bin/python3
@@ -24,7 +27,7 @@ mode = (root / 'mode').read_text() if (root / 'mode').exists() else ''
 command = sys.argv[1]
 if command == 'prepare-remove':
     payload = {'body': source.read_text(), 'source':str(source)}
-    print(json.dumps({'ok':True,'schemaVersion':1,'payload':payload}))
+    print(json.dumps({'ok':True,'schemaVersion':1,'payload':payload,'recordId':sys.argv[sys.argv.index('--transaction-id')+1]}))
 elif command == 'remove-prepared':
     payload = json.load(sys.stdin)
     manifests = list((Path(os.environ['XDG_DATA_HOME'])/'fileblade/bin/hooks').glob('*/manifest.json'))
@@ -39,6 +42,10 @@ elif command == 'remove-prepared':
     if mode == 'sleep':
         (root/'started').touch()
         time.sleep(10)
+    print('{"ok":true,"schemaVersion":1}')
+elif command == 'discard':
+    if '--payload-stdin' in sys.argv: json.load(sys.stdin)
+    (root/'discarded').touch()
     print('{"ok":true,"schemaVersion":1}')
 else:
     payload = json.load(sys.stdin)
@@ -70,6 +77,7 @@ else:
     }
     fn command(&self) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+        plugin_environment::configure(&mut command, self.root.path());
         command
             .env("XDG_DATA_HOME", self.root.path().join("data"))
             .env("XDG_STATE_HOME", self.root.path().join("state"));

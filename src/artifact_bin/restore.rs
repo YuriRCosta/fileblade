@@ -450,6 +450,7 @@ pub(super) fn files_equal(
 
 pub(super) fn discard_entry(entry_dir: &Path, manifest: Option<&Manifest>) -> Result<(), String> {
     if let Some(manifest) = manifest {
+        super::transaction::discard_helper_record(entry_dir, manifest)?;
         for item in manifest.items.iter().rev() {
             let path = entry_dir.join(&item.stored);
             let outcome = if item.kind == "dir" {

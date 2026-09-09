@@ -163,11 +163,23 @@ pub fn validate_arguments(raw: &str) -> AppResult<Vec<String>> {
 }
 
 pub fn run(request: &Request<'_>, cancelled: &AtomicBool) -> AppResult<Value> {
+    if cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(AppError::Cancelled);
+    }
     let arguments = validate_arguments(request.arguments)?;
     if request.input.is_some_and(|input| input.len() > INPUT_LIMIT) {
         return Err(AppError::invalid("helper input exceeds 64 KiB"));
     }
     let declared = declaration(request)?;
+    crate::plugin_catalog::require_enabled(request.provider, &declared.root)?;
+    if request.write
+        && matches!(
+            request.provider,
+            "data-goblin.fileblade-memory" | "data-goblin.fileblade-skills"
+        )
+    {
+        crate::preferences::require_agent_management()?
+    }
     let mut command = CommandSpec::new(declared.program)
         .args([request.method])
         .args(&arguments)

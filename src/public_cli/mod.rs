@@ -88,6 +88,7 @@ pub enum RootCommand {
     },
     #[command(hide = true)]
     Serve(ServeArgs),
+    Preferences(crate::preferences::Changes),
     Status,
     Doctor,
     Selection,
@@ -213,6 +214,15 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Backend { .. } | RootCommand::Serve(_) | RootCommand::CompanionMutate => Err(
             AppError::invalid("internal command routed through the public CLI"),
         ),
+        RootCommand::Preferences(changes) => {
+            let settings =
+                if changes.trash_retention_days.is_some() || changes.agent_management.is_some() {
+                    crate::preferences::change(&changes)?
+                } else {
+                    crate::preferences::read()?
+                };
+            Ok(PublicResult::one(json!({"ok":true,"settings":settings})))
+        }
         RootCommand::Status => json_ipc("status", &[]),
         RootCommand::Doctor => doctor(),
         RootCommand::Selection => json_ipc("selection", &[]),

@@ -42,6 +42,7 @@ FloatingWindow {
 
   function focusSlot(index, part) {
     if (!bladeOpen) return
+    if (trashConsent.visible) { trashConsent.forceActiveFocus(); return }
     var target = slotItem(index)
     if (!target && window.slots.length > 0) target = slotItem(0)
     Qt.callLater(function() {
@@ -118,6 +119,7 @@ FloatingWindow {
 
   FocusScope {
     id: scope
+    enabled: !trashConsent.visible
     anchors.fill: parent
     anchors.bottomMargin: window.footerHeight
 
@@ -160,8 +162,16 @@ FloatingWindow {
     }
   }
 
+  PluginUi.TrashConsent {
+    id: trashConsent
+    anchors.fill: parent
+    preferences: window.host.service.preferences
+    presented: window.edge === "left" && window.bladeOpen
+  }
+
   Rectangle {
     id: footer
+    enabled: !trashConsent.visible
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom

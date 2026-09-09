@@ -27,14 +27,15 @@ share the same Quickshell process and user authority as FileBlade. Another
 enabled schema-v1 plugin can interfere with FileBlade or inspect its in-process
 state. Extension review remains the user's responsibility.
 
-Ordinary browsing and file operations initiate no network request. The one
-optional background request is the update check: it runs `git fetch --quiet
---no-tags` on FileBlade's own checkout and on every enabled plugin that
-contributes a blade module. It runs at most once per six hours (the attempt
-time is persisted before the fetch, so an offline failure does not retry until
-the window passes), with `GIT_TERMINAL_PROMPT=0` and `BatchMode=yes` so it never
-prompts for credentials, and only when a blade opens or the saved state loads.
-Set `"checkUpdates": false` in the plugin settings to remove it entirely.
+This file was written by an agent.
+
+Ordinary browsing and file operations initiate no network request. The optional
+update check reads remote ref IDs with `git ls-remote`; it downloads no Git objects
+and changes no refs or checkout files. Each remote check has a 20-second deadline,
+64 KiB stdout and 16 KiB stderr caps. Local comparisons use only existing objects;
+missing history is reported as unknown, not a made-up commit count. Checks run at
+most once per six hours; the attempt is saved before requesting the network.
+Set `"checkUpdates": false` in plugin settings to disable automatic checks.
 
 Installation clones the source and bundled static backend from GitHub. There
 is no install hook, runtime build, or first-run executable download. Maintainer
@@ -59,21 +60,32 @@ of the binary, then compares the result byte for byte with the committed
 the repository sits or which machine runs it, so a matching rebuild shows the
 shipped bytes are that commit's source. What a user installs is the binary
 inside the cloned commit; the release asset is a copy of the same bytes.
-The update checker only
-fetches Git objects and reads repository state; it never merges, resets,
+The update checker reads ref IDs and local repository state; it never merges, resets,
 validates, builds, or rescans plugins, and it never changes checked-out source.
 Updates happen outside FileBlade with the shell stopped before replacing
 watched plugin files, followed by a fresh shell start. Disabling only a pane
 does not stop Omarchy's plugin watcher.
 
-The Welcome tab's explicit Install action clones four allowlisted public
-GitHub extensions: Memory, Skills, MCP, and Hooks. A separate, bounded helper
-survives plugin reloads, validates each checkout with Omarchy, and enables it
-through Omarchy's CLI. Enablement updates Omarchy's plugin configuration as
-requested by that click. A private lock prevents overlapping installs, and
-progress lives in FileBlade's state directory. Failed runs require a retry;
-loading FileBlade does not install anything. Existing checkouts are validated
-and enabled without being replaced or updated.
+The Welcome tab's explicit Install action acquires only the four full commit IDs
+compiled into `src/plugin_install.rs`. Shallow, no-checkout clones disable templates,
+submodules, automatic maintenance and checkout hooks. Acquisition has a 180-second
+command deadline, 16 MiB per-file and 512 MiB address-space limits. A staging budget
+of 128 MiB and 16,384 entries is checked every 50 ms and at completion; this is a
+monitored aggregate limit, not an OS disk quota, so transient overshoot is possible.
+Before checkout, each pinned tree must contain at most 2,048 regular files, eight
+MiB total, and paths at most 16 segments/1,024 bytes. Symlinks and submodules are
+refused. The final HEAD is verified and Omarchy validates the checkout before
+publication or enablement. Detached pinned checkouts support Omarchy's
+`fetch origin HEAD` / `merge --ff-only FETCH_HEAD` update path.
+
+Unique, exclusive private staging has a durable device/inode identity; cleanup
+refuses a replacement directory. Publication uses no-replace rename. A private
+lock excludes overlapping installs, and progress survives plugin reloads. Existing
+checkouts are preserved. Welcome enables them only when the origin matches, HEAD
+is exactly the reviewed pin, the tree has no tracked, untracked or ignored changes,
+and validation succeeds. Otherwise it asks for an explicit update or enable action.
+No installation happens on startup. Companion host-enable buttons use an overall
+20-second timeout with a one-second termination grace and never acquire code.
 
 FileBlade sends no telemetry, uses no privilege elevation, and does not install
 system packages or modify Hyprland, systemd, sudoers, or udev configuration.
@@ -111,7 +123,9 @@ Removal deletes the plugin checkout but deliberately preserves your layout,
 settings, history, audit log, and disabled-module bins under
 `~/.config/omarchy/fileblade/`, `~/.local/state/omarchy/fileblade/`, and
 `~/.local/share/fileblade/`. Delete those directories manually only if you also
-want to erase that data. Files already in the normal Freedesktop Trash are not
+want to erase that data. Companions also retain private recovery under
+`$XDG_STATE_HOME/fileblade/mcp-recovery` and `hooks-recovery` (normally beneath
+`~/.local/state/`). Uninstall preserves these copies too. Files in the normal Freedesktop Trash are not
 owned by the plugin and are never removed during uninstall.
 
 ## Resident backend boundary
@@ -193,7 +207,12 @@ overwrite failures. They cannot make a multi-item operation globally atomic:
 already completed items remain reported if a later item fails or the operation
 is cancelled.
 
-Archive extraction uses `bsdtar`. New or empty destinations are populated in a
+Archive extraction uses `bsdtar`. A private uncompressed PAX snapshot is bounded
+by a 1 GiB file limit before extraction. Its headers are checked before destination
+writes: at most 50,000 headers, 1 GiB logical expanded bytes including sparse sizes,
+and 64 KiB per metadata header. The snapshot and extracted tree can together use
+up to approximately 2 GiB, plus bounded filesystem metadata; special files are
+refused. Decoder address space is limited to 1 GiB and commands to 300 seconds. New or empty destinations are populated in a
 private stage and published only after successful extraction. Failed or
 cancelled extraction leaves the destination unchanged. An explicit merge into
 a populated directory writes directly to that pinned directory, can replace
@@ -297,13 +316,38 @@ without following the symlink as content.
 Restore constructs each root privately, publishes without replacement, and
 checkpoints completed roots so an interrupted exact restore can resume. An
 occupied non-identical destination is refused. Manifests are private,
-bounded, and written atomically. Logical removal prepares the exact payload,
-checks the complete serialized record and helper-input bounds, then saves and
-syncs the manifest before changing the source. Its validated helper route is
-retained for restore without an open companion pane. A crash, cancellation or
-unconfirmed helper result keeps that recovery record. Confirmed, idempotent
-restore removes it. A cross-process lease excludes purge and retention cleanup
-during active bin mutations; visual teardown cannot discard accepted work.
+bounded, and written atomically. Logical removal saves a visible core record and
+transaction ID before the companion prepares private recovery. Preparation is a
+write operation. The complete payload and helper-input limits are checked and
+saved before source removal. Interrupted preparation can restore by its stored ID;
+it cannot disappear into an invisible helper quota. A cross-process lease excludes
+purge and retention during active mutations. Confirmed restore checkpoints completion
+before cleanup, so retry does not repeat a successful write.
+
+Purge, retention and completed restore call the companion's declared `discard`
+method before removing the visible bin entry. Each transaction has its own record;
+legacy payload matching preserves records referenced by another bin entry. A
+failed cleanup keeps the visible entry. Each helper store scans at most 512 names
+before sorting, reads through held no-follow directories and nonblocking private
+regular-file descriptors, and caps records at about 1 MiB, aggregate bytes at
+16 MiB and pending removals at 64. Pending undo does not expire independently of
+the bin; direct helper restores retain idempotent completion records for one week.
+Pre-fix payloads without a stored recovery record are not promoted into trusted
+undo. They remain listed and can be purged, but cannot be replayed safely.
+
+The first start without a recorded retention answer opens a modal on the left
+FileBlade blade, opening it if needed and using its own window when undocked:
+“Should FileBlade automatically empty the trash?” Never is selected initially.
+Never, 1 day, 7 days, 30 days and 90 days require explicit Confirm. Existing implicit
+seven-day defaults do not count as consent. Until a choice is durably saved,
+automatic cleanup is off. The choice applies to shared desktop Trash and artifact
+bins, without per-item ownership markers. It can be changed in settings.
+`settings.json` and `keybindings.json` carry schema `version` and the backend's
+`filebladeVersion`; custom keybindings survive metadata migration.
+
+Skills and Memory browsing is available without write consent. Their management
+operations through FileBlade require the saved “Manage agent files” opt-in; enabling
+it explains that links and instruction/skill files influence coding agents.
 
 Hooks/MCP configuration writes and Memory/Skills link changes share the native
 filesystem boundary. Configuration replacement compares the opened identity and
@@ -334,7 +378,10 @@ they cannot hold the output reader indefinitely. Commit messages use bounded
 stdin instead of argv. Neither this supervisor nor FileBlade sandboxes Git
 hooks or configured credential helpers.
 
-Manifest-declared inventory helpers use the same native supervisor. Their
+Manifest-declared inventory helpers use the same native supervisor. Every dispatch,
+including reads, restore and purge, requires a complete current catalog, a matching
+installed directory and authoritative enabled state. Unknown or disabled companions
+are refused; the user must explicitly re-enable before their helpers run. Their
 relative executable must be a regular executable inside the provider checkout;
 read and write methods cannot overlap. Timeouts are limited to 30 seconds,
 stdout to 2 MiB, stderr to 4 KiB, and private stdin to 64 KiB. Nonzero exits

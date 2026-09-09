@@ -101,6 +101,10 @@ Column {
     id: moduleLoader
     width: parent.width
     sourceComponent: section.modelData.component
-    onLoaded: section.apply()
+    onLoaded: {
+      if (item && typeof item.retentionConsentRequested === "function")
+        item.retentionConsentRequested.connect(section.sheet.confirmTrashRetention)
+      section.apply()
+    }
   }
 }

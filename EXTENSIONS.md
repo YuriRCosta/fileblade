@@ -177,7 +177,7 @@ name:         shown in tabs and the picker; defaults to the id
 glyph:        one NerdFont glyph for the picker; optional
 description:  one line for the picker
 entry:        QML path relative to the definition; no `..`, no leading `/` (default Module.qml)
-hostContract: 1 or 2; a module that asks for a newer host is listed but not loadable
+hostContract: 1, 2 or 3; a module that asks for a newer host is listed but not loadable
 singleton:    true means only one slot may hold it (default true); false allows many
 minHeight:    pixels the slot can't shrink below, 0 to 4096
 category:     one word or a short phrase (max 32) the picker groups by; defaults to `Module` for built-in and user modules, `Plugin` for manifest ones
@@ -639,19 +639,31 @@ The dialog returns focus to its live opener. Bin listing requests are canceled
 on teardown; accepted changes belong to the core's `ArtifactActionController`,
 so removing the pane cannot abandon their completion.
 
-For logical records, supply `helperRoute` (`provider`, `directory`, `helper`)
-and a `removalArguments(item)` adapter. Declare `prepare-remove` as a read
-method, and `remove-prepared` and `restore` as write methods. The native
-`bin-remove` operation prepares the exact recovery payload, checks the fully
-serialized item against the 64 KiB record/input limits, and durably saves it
-before invoking removal with that same payload. Removal must reject a changed
-definition. Uncertain completion retains the recovery record, not a guessed
-rollback. Restore must be idempotent and refuse conflicting later edits.
+This file was written by an agent.
 
-New records retain the validated helper route and can be restored without an
-open pane. A live companion registers only a plain route descriptor to support
-legacy records; no disposable QML callback is retained. A cross-process lease
-prevents purge or retention cleanup from deleting an active transaction.
+For logical records, supply `helperRoute` (`provider`, `directory`, `helper`)
+and a `removalArguments(item)` adapter, and declare `hostContract: 3`. Declare
+`prepare-remove`, `remove-prepared`, `restore` and `discard` as write methods;
+preparation persists private recovery even though it preserves the source.
+
+Core saves a visible bin entry before requesting preparation and passes a fresh
+32-character hexadecimal `--transaction-id`. Preparation uses that ID as its
+`recordId`; removal reuses the same record and must compare the complete payload.
+Each different transaction owns different recovery, even for identical content.
+Core enforces the 64 KiB wire/input limit before invoking removal. Uncertain
+completion keeps recovery. Restore is idempotent and refuses conflicting later
+edits. An interrupted preparation can restore using `--record-id ID --json`
+without a caller payload; the helper must read its own trusted record.
+
+`discard --record-id ID --json` durably removes that private record and treats an
+already absent ID as success. Legacy entries additionally pass `--payload-stdin`
+for bounded matching against stored records. Core calls discard before deleting
+its visible entry; a failure keeps it visible. Restore completion is checkpointed
+before discard, so cleanup retry does not repeat the source write. Unused undo
+must not expire while its bin entry remains. A live companion registers a plain
+route descriptor, never a disposable QML callback. Every helper request requires
+the provider to be installed and explicitly enabled in the current catalog.
+Contract 3 gates this protocol: older hosts display an update requirement.
 
 ### Shared tree wiring
 

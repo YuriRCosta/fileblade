@@ -1,6 +1,11 @@
 use super::*;
 
 pub fn put(module: &str, raw_item: &str, cancelled: &AtomicBool) -> Value {
+    if matches!(module, "skills" | "memory")
+        && let Err(error) = crate::preferences::require_agent_management()
+    {
+        return refusal(error.to_string(), "");
+    }
     let _lease = match mutation_lease() {
         Ok(lease) => lease,
         Err(error) => return refusal(error, ""),
@@ -245,6 +250,13 @@ pub(super) fn valid_manifest(manifest: &Manifest, expected_module: Option<&str>)
         || !valid_module(&manifest.module)
         || expected_module.is_some_and(|module| module != manifest.module)
         || manifest.items.len() > MAX_TREE_ENTRIES
+        || manifest.helper_record_id.as_ref().is_some_and(|id| {
+            id.len() != 32
+                || !id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        || (manifest.helper_restored && manifest.restore_helper.is_none())
     {
         return false;
     }

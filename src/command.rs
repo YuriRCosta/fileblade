@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod disk;
 mod guard;
 mod io;
 mod supervisor;
@@ -29,6 +30,10 @@ pub struct CommandSpec {
     pub stderr_limit: usize,
     pub retain_tail: bool,
     stdin_data: Option<Vec<u8>>,
+    directory_budget: Option<disk::Budget>,
+    file_limit: Option<u64>,
+    memory_limit: Option<u64>,
+    stop_on_output_limit: bool,
 }
 
 #[derive(Debug)]
@@ -53,6 +58,10 @@ impl CommandSpec {
             stderr_limit: 256 * 1024,
             retain_tail: false,
             stdin_data: None,
+            directory_budget: None,
+            file_limit: None,
+            memory_limit: None,
+            stop_on_output_limit: false,
         }
     }
 
@@ -92,6 +101,22 @@ impl CommandSpec {
     pub fn limits(mut self, stdout: usize, stderr: usize) -> Self {
         self.stdout_limit = stdout;
         self.stderr_limit = stderr;
+        self
+    }
+
+    pub fn directory_budget(mut self, path: &Path, bytes: u64, entries: usize) -> Self {
+        self.directory_budget = Some(disk::budget(path, bytes, entries));
+        self
+    }
+
+    pub fn resource_limits(mut self, file_bytes: u64, memory_bytes: u64) -> Self {
+        self.file_limit = Some(file_bytes);
+        self.memory_limit = Some(memory_bytes);
+        self
+    }
+
+    pub fn stop_on_output_limit(mut self) -> Self {
+        self.stop_on_output_limit = true;
         self
     }
 

@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import "blades"
 import "controllers"
 import "lib/PathText.js" as PathText
@@ -80,6 +81,17 @@ Item {
   }
   readonly property alias extensionCatalog: extensionCatalog
   KeybindingsController { id: keybindings; service: service }
+  PreferencesController { id: preferencesController; service: service }
+  FileView {
+    id: preferencesWatch
+    path: bladeHost.configDir + "/settings.json"
+    preload: false
+    watchChanges: true
+    printErrors: false
+    onFileChanged: { reload(); preferencesController.refreshSoon() }
+  }
+  property alias preferences: preferencesController
+  readonly property bool agentManagementEnabled: preferencesController.agentManagement
   readonly property alias keybindings: keybindings
   WelcomeController { id: welcomeController; service: service }
   readonly property alias welcome: welcomeController
@@ -157,7 +169,8 @@ Item {
   readonly property color editorModeColor: editorMode === "VISUAL" ? themedFolderColor("magenta", "#c678dd") : (editorMode === "INSERT" ? themedFolderColor("green", "#98c379") : themedFolderColor("blue", "#61afef"))
   property alias folderColorScope: stateController.folderColorScope
   property alias favorites: stateController.favorites
-  property alias trashRetentionDays: stateController.trashRetentionDays
+  property alias trashCleanupConsent: preferencesController.trashCleanupConsent
+  property alias trashRetentionDays: preferencesController.trashRetentionDays
   property alias trashLastClearedAt: stateController.trashLastClearedAt
   property alias updateCheckedAt: stateController.updateCheckedAt
   property alias favoritePathLookup: stateController.favoriteLookup
@@ -738,8 +751,8 @@ Item {
     stateController.scheduleSave()
   }
 
-  function setTrashRetentionDays(value) {
-    return stateController.setTrashRetentionDays(value)
+  function setTrashRetentionDays(value, consent) {
+    return preferencesController.setTrashRetentionDays(value, consent)
   }
 
   function markTrashCleared(value) {

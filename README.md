@@ -21,6 +21,12 @@
 > 
 > I welcome any and all feedback or critique!
 
+> [!WARNING]
+> FileBlade is in 0.1.0-**beta** meaning that it's still undergoing testing and changes.
+> Please only install it if you're comfortable with testing and feedback until it is out of beta.
+>
+> **Multiple monitors** is currently not supported in the beta (sorry!) but is planned for v0.1.0
+
 This README is human-written. See [here](#details) for more detailed agent-written docs.
 
 ## Installation / Quick-start

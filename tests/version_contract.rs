@@ -33,7 +33,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
         "## Dependencies and previews",
         "`gtk-launch`",
         "`xdg-terminal-exec`",
-        "git fetch --quiet",
+        "git ls-remote",
         "sends no telemetry",
         "deliberately preserves your layout",
         "Eligible image previews load automatically on selection",
@@ -51,8 +51,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
     assert!(!security.contains("Qt decodes the selected image inside the shell"));
     assert!(!security.contains("never decoded merely by selecting"));
     assert_eq!(
-        security.matches("git fetch --quiet\n--no-tags").count()
-            + security.matches("git fetch --quiet --no-tags").count(),
+        security.matches("`git ls-remote`").count(),
         1,
         "SECURITY.md must describe the optional update check exactly once"
     );

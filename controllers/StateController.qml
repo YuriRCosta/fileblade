@@ -57,7 +57,6 @@ Item {
   property alias treeSort: persisted.treeSort
   property alias treeFilter: persisted.treeFilter
   property alias favorites: persisted.favorites
-  property alias trashRetentionDays: persisted.trashRetentionDays
   property alias trashLastClearedAt: persisted.trashLastClearedAt
   property alias updateCheckedAt: persisted.updateCheckedAt
   readonly property var favoriteLookup: {
@@ -97,7 +96,6 @@ Item {
     property var treeSort: []
     property var treeFilter: ({})
     property var favorites: []
-    property int trashRetentionDays: 7
     property double trashLastClearedAt: 0
     property double updateCheckedAt: 0
   }
@@ -569,7 +567,7 @@ Item {
       showSystemVolumes: service.boolValue(config.showSystemVolumes, false),
       modeBadge: service.normalizeModeBadge(config.modeBadge),
       folderColorScope: normalizedFolderColorScope(config.folderColorScope),
-      trashRetentionDays: normalizedTrashRetentionDays(config.trashRetentionDays === undefined ? 7 : config.trashRetentionDays)
+      trashRetentionDays: 0
     }
   }
 
@@ -595,7 +593,6 @@ Item {
     folderColorScope = base.folderColorScope
     treeSort = TreeOrder.normalizeSorts([])
     treeFilter = TreeOrder.normalizeFilter({})
-    trashRetentionDays = base.trashRetentionDays
     service.resetTree()
     scheduleSave()
     return true
@@ -603,17 +600,10 @@ Item {
 
   function normalizedTrashRetentionDays(value) {
     var days = Number(value)
-    if (!isFinite(days)) return 7
+    if (!isFinite(days)) return 0
     return Math.max(0, Math.min(3650, Math.round(days)))
   }
 
-  function setTrashRetentionDays(value) {
-    var days = normalizedTrashRetentionDays(value)
-    if (trashRetentionDays === days) return false
-    trashRetentionDays = days
-    scheduleSave()
-    return true
-  }
 
   function normalizedTrashTimestamp(value) {
     var timestamp = Number(value)
@@ -663,9 +653,6 @@ Item {
     treeSort = TreeOrder.normalizeSorts(state.treeSort)
     treeFilter = TreeOrder.normalizeFilter(state.treeFilter)
     favorites = normalizedFavorites(state.favorites)
-    trashRetentionDays = normalizedTrashRetentionDays(state.trashRetentionDays === undefined
-      ? base.trashRetentionDays
-      : state.trashRetentionDays)
     trashLastClearedAt = normalizedTrashTimestamp(state.trashLastClearedAt)
     updateCheckedAt = normalizedTrashTimestamp(state.updateCheckedAt)
     persisted.hydrated = true
@@ -722,7 +709,6 @@ Item {
       treeSort: treeSort,
       treeFilter: treeFilter,
       favorites: favorites,
-      trashRetentionDays: trashRetentionDays,
       trashLastClearedAt: trashLastClearedAt,
       updateCheckedAt: updateCheckedAt
     }
@@ -815,13 +801,12 @@ Item {
 
   FileView {
     id: stateFileSignal
+    preload: false
     path: service.statePath
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onLoaded: controller.requestStateRead()
-    onLoadFailed: controller.requestStateRead()
-    onFileChanged: if (!controller.ready) reload()
+    onFileChanged: { reload(); if (!controller.ready || controller.stateRereadPending) controller.requestStateRead() }
   }
 
   FileView {
@@ -836,11 +821,12 @@ Item {
 
   FileView {
     id: themeFolderPaletteFile
+    preload: false
     path: Color.currentThemePath + "/colors.toml"
     watchChanges: true
     printErrors: false
-    onLoaded: controller.requestThemeRead()
-    onFileChanged: reload()
+    onPathChanged: controller.requestThemeRead()
+    onFileChanged: { reload(); controller.requestThemeRead() }
   }
 
   Connections {
@@ -858,6 +844,7 @@ Item {
 
   Component.onCompleted: {
     requestStateRead()
+    requestThemeRead()
     requestUserPaletteRead()
   }
 }

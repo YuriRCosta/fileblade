@@ -114,6 +114,8 @@ pub(super) fn manifest_for(module: &str, parsed: &ParsedItem, items: Vec<StoredI
         deleted_at_epoch: Some(deleted_at.timestamp()),
         payload: parsed.payload.clone(),
         restore_helper: None,
+        helper_record_id: None,
+        helper_restored: false,
         position: parsed.position,
         groups: parsed.groups.clone(),
         metrics: parsed.metrics.clone(),

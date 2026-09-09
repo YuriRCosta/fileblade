@@ -35,6 +35,8 @@ impl Running {
             .map_err(io::Error::from)?,
         )?;
         let controls = guard::Controls {
+            file_limit: spec.file_limit,
+            memory_limit: spec.memory_limit,
             cancel: cancel_read.as_raw_fd(),
             result: result_write.as_raw_fd(),
             owner: owner.as_raw_fd(),

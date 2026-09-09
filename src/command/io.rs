@@ -103,9 +103,16 @@ pub(super) fn run(spec: &CommandSpec, cancelled: &AtomicBool) -> AppResult<Comma
     let mut message = [0_u8; 8];
     let mut received = 0;
     let mut drain_until = None;
+    let mut disk_checked = started;
     loop {
         if cancelled.load(Ordering::Relaxed) {
             running.cancel();
+        }
+        if let Some(budget) = &spec.directory_budget
+            && disk_checked.elapsed() >= Duration::from_millis(50)
+        {
+            budget.check()?;
+            disk_checked = Instant::now();
         }
         if written == input.len() {
             stdin = None;
@@ -160,6 +167,9 @@ pub(super) fn run(spec: &CommandSpec, cancelled: &AtomicBool) -> AppResult<Comma
         if fds[2].revents != 0 {
             stderr.read()?;
         }
+        if spec.stop_on_output_limit && (stdout.truncated || stderr.truncated) {
+            return Err(AppError::command("command exceeded its output limit"));
+        }
         if fds[3].revents != 0 {
             match running.result.read(&mut message[received..]) {
                 Ok(0) => {
@@ -178,6 +188,9 @@ pub(super) fn run(spec: &CommandSpec, cancelled: &AtomicBool) -> AppResult<Comma
         }
     }
     running.finish()?;
+    if let Some(budget) = &spec.directory_budget {
+        budget.check()?;
+    }
     let status = i32::from_ne_bytes(message[..4].try_into().unwrap());
     match i32::from_ne_bytes(message[4..].try_into().unwrap()) {
         guard::NORMAL => Ok(CommandOutput {
