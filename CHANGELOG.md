@@ -9,7 +9,7 @@ This file was written by an agent.
 
 ## 0.1.2
 
-- Add a pinned release workflow with backend binary signing.
+- Add a pinned workflow with signed backend build provenance.
 
 ## 0.1.1
 
