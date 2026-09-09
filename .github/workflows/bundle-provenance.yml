@@ -1,0 +1,152 @@
+name: Build backend provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Full commit SHA of the selected branch or tag
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: fileblade-backend-provenance
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    if: github.repository == 'data-goblin/fileblade'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Check the requested commit
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          WORKFLOW_COMMIT: ${{ github.workflow_sha }}
+        run: |
+          [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_COMMIT" == "$GITHUB_SHA" ]]
+          [[ "$WORKFLOW_COMMIT" == "$GITHUB_SHA" ]]
+
+      - name: Check out the exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: |
+          bundle_channel=$(sed -n 's/^channel = "\([^"]*\)"$/\1/p' rust-toolchain.toml)
+          [[ "$bundle_channel" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          rustup toolchain install "$bundle_channel" --profile minimal --target x86_64-unknown-linux-musl
+          rustup run "$bundle_channel" rustc -vV
+          printf 'Runner image: %s %s\n' "$ImageOS" "$ImageVersion"
+
+      - name: Rebuild and compare the committed bundle
+        env:
+          CARGO_HOME: ${{ runner.temp }}/fileblade-cargo
+          FILEBLADE_BUNDLE_TMPDIR: ${{ runner.temp }}
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          bundle_expected=$(mktemp -d "$RUNNER_TEMP/fileblade-expected.XXXXXX")
+          bundle_files=(fileblade-bin fileblade-bin.sha256 fileblade-bin.source THIRD_PARTY_NOTICES.html)
+          for bundle_file in "${bundle_files[@]}"; do
+            git show "$GITHUB_SHA:$bundle_file" > "$bundle_expected/$bundle_file"
+          done
+          tools/bundle build
+          for bundle_file in "${bundle_files[@]}"; do
+            cmp -- "$bundle_expected/$bundle_file" "$bundle_file"
+          done
+          git diff --no-ext-diff --no-textconv --exit-code "$GITHUB_SHA" --
+          mkdir -p target/provenance-artifact
+          cp -- "${bundle_files[@]}" target/provenance-artifact/
+          printf '%s\n' "$GITHUB_SHA" > target/provenance-artifact/source-commit.txt
+
+      - name: Transfer the rebuilt bundle
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fileblade-build-${{ github.sha }}-${{ github.run_attempt }}
+          path: target/provenance-artifact/
+          if-no-files-found: error
+          retention-days: 1
+
+  attest:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Read the exact committed bundle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          path: source
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /fileblade-bin
+            /fileblade-bin.sha256
+            /fileblade-bin.source
+            /THIRD_PARTY_NOTICES.html
+
+      - name: Download this run's rebuilt bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: bundle
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Check the bytes before signing
+        run: |
+          [[ "$(git -C source rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$(cat bundle/source-commit.txt)" == "$GITHUB_SHA" ]]
+          for bundle_file in fileblade-bin fileblade-bin.sha256 fileblade-bin.source THIRD_PARTY_NOTICES.html; do
+            [[ -f "bundle/$bundle_file" && ! -L "bundle/$bundle_file" ]]
+            cmp -- "source/$bundle_file" "bundle/$bundle_file"
+          done
+          (cd bundle && sha256sum --strict --check fileblade-bin.sha256)
+
+      - name: Attest the rebuilt backend
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: bundle/fileblade-bin
+          create-storage-record: false
+
+      - name: Verify the source and signer identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          gh --version
+          gh attestation verify bundle/fileblade-bin \
+            --bundle "$ATTESTATION_BUNDLE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/bundle-provenance.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --signer-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners \
+            --format json > bundle/verification.json
+          cp -- "$ATTESTATION_BUNDLE" bundle/fileblade-bin.sigstore.json
+
+      - name: Save the backend and verification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fileblade-backend-${{ github.sha }}-${{ github.run_attempt }}
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 90

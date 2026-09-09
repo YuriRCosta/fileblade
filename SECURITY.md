@@ -60,6 +60,17 @@ of the binary, then compares the result byte for byte with the committed
 the repository sits or which machine runs it, so a matching rebuild shows the
 shipped bytes are that commit's source. What a user installs is the binary
 inside the cloned commit; the release asset is a copy of the same bytes.
+
+The manual [backend provenance workflow](docs/agent-written/build-provenance.md)
+rebuilds that same recipe on GitHub and refuses attestation unless its output is
+byte-identical to the selected commit's bundle. A separate job signs the backend
+digest using GitHub's workflow identity, then checks both source and signer commit
+digests. Every action is pinned to a full commit. Only the signing job has OIDC
+and attestation write permissions; neither job can write repository contents or
+releases. A successful run and verified attestation must exist for the exact
+reviewed commit before claiming hosted provenance. The workflow's presence alone
+is not that evidence, and attestations are not a security audit of the code.
+
 The update checker reads ref IDs and local repository state; it never merges, resets,
 validates, builds, or rescans plugins, and it never changes checked-out source.
 Updates happen outside FileBlade with the shell stopped before replacing

@@ -85,7 +85,11 @@ tools/bundle build # When native source or build inputs change.
 tests/run
 ```
 
-`tests/run` is the whole gate and runs locally only; there is no hosted CI.
+This file was written by an agent.
+
+`tests/run` is the whole gate and runs locally only. The manual
+[backend delivery build](docs/agent-written/build-provenance.md) runs on GitHub
+solely to reproduce and attest the bundled backend; it does not run tests there.
 It isolates state in a temporary directory and requires the test dependencies,
 including Qt 6 declarative tools, Python 3, `nvim`, `git`, and `bsdtar`. Set
 `FILEBLADE_OFFLINE=1` to use cached Cargo dependencies.

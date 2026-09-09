@@ -18,6 +18,8 @@ is maintained separately.
   other FileBlade extension points
 - [Security](../../SECURITY.md): trust boundaries, filesystem protections,
   command execution, previews, IPC, and known limits
+- [Build provenance](build-provenance.md): manual GitHub delivery builds,
+  exact-commit artifact attestations and independent verification
 - [Contributing](../../CONTRIBUTING.md): repository layout and development
   workflow
 - [Third-party notices](../../THIRD_PARTY_NOTICES.html): generated dependency
