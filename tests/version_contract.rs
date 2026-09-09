@@ -15,6 +15,28 @@ fn manifest_and_crate_versions_agree() {
 }
 
 #[test]
+fn provenance_actions_are_pinned_to_full_commits() {
+    let workflow = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/bundle-provenance.yml"),
+    )
+    .unwrap();
+    let actions: Vec<_> = workflow
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("uses: "))
+        .collect();
+    assert!(
+        !actions.is_empty(),
+        "provenance workflow has no pinned actions"
+    );
+    for action in actions {
+        let (repository, commit) = action.split_once('@').expect("action has no commit pin");
+        assert!(repository.starts_with("actions/"));
+        assert_eq!(commit.len(), 40, "action must use a full commit: {action}");
+        assert!(commit.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    }
+}
+
+#[test]
 fn marketplace_release_metadata_and_bundled_install_are_documented() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let manifest: serde_json::Value =
