@@ -35,6 +35,7 @@ Item {
   property bool quickNavActive: false
   property string quickNavChannel: "folders"
   property string quickNavHome: "folders"
+  property string quickNavMonitor: ""
   property var quickNavTargetScreen: null
   property string activeQuery: ""
   property string activeMode: ""
@@ -108,6 +109,7 @@ Item {
 
   function startQuickNav(targetScreen, channel) {
     quickNavTargetScreen = targetScreen || null
+    quickNavMonitor = bladeHost.focusedMonitorName
     quickNavHome = String(channel || "folders")
     quickNavChannel = quickNavHome
     quickNavActive = true
@@ -550,8 +552,9 @@ Item {
     interval: 220
     onTriggered: {
       if (!service.open || !root.quickNavActive) return
+      if (root.quickNavMonitor !== bladeHost.focusedMonitorName) { root.quickNavTargetScreen = null; return }
       var screen = root.quickNavTargetScreen
-      if (!screen && Quickshell.screens.length > 0) screen = Quickshell.screens[0]
+      if (!screen) screen = service.referenceScreen(null)
       bladeHost.focusModule("files", screen, "quicknav")
       root.quickNavTargetScreen = null
     }

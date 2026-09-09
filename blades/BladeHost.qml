@@ -8,6 +8,8 @@ Item {
 
   property var shell: null
   property var pluginRegistry: null
+  property var catalogProviders: []
+  property var providerErrors: ({})
   property string pluginDir: ""
   property var config: ({})
   property var services: ({})
@@ -33,6 +35,7 @@ Item {
   property alias registry: registry
   property alias layout: persisted.layout
   property alias monitorMode: persisted.monitorMode
+  property alias monitorLock: persisted.monitorLock
   property alias animateBlades: persisted.animateBlades
   property bool layoutReady: false
   property bool pressActive: false
@@ -83,6 +86,7 @@ Item {
   signal bladeFocusRequested(string edge, var targetScreen, int slotIndex, string part)
   signal bladeFocusReleased(string edge)
   signal layoutApplied()
+  signal bladeOpened(string edge)
 
   BladeRegistry {
     id: registry
@@ -90,6 +94,7 @@ Item {
     pluginDir: host.pluginDir
     userModulesDir: host.configDir + "/modules"
     pluginRegistry: host.pluginRegistry
+    catalogProviders: host.catalogProviders
     service: host.services ? host.services.files : null
     contractVersion: host.moduleContractVersion
   }
@@ -102,7 +107,8 @@ Item {
       left: { open: false, width: 380, mode: "docked", slots: [] },
       right: { open: false, width: 360, mode: "docked", slots: [] }
     })
-    property string monitorMode: "all"
+    property string monitorMode: "active"
+    property string monitorLock: ""
     property bool animateBlades: true
   }
 
@@ -217,8 +223,33 @@ Item {
   function propertiesPlacement() { return bladeLayout.propertiesPlacement() }
   function layoutDocument() { return bladeLayout.layoutDocument() }
   function activeSlot(edge) { return bladeLayout.activeSlot(edge) }
-  function panelActiveFor(panelScreen) { return bladeLayout.panelActiveFor(panelScreen) }
+  function panelActiveFor(panelScreen, edge) { return bladeLayout.panelActiveFor(panelScreen, edge) }
+
+  function screenAlive(candidate) {
+    if (!candidate) return true
+    for (var i = 0; i < Quickshell.screens.length; i++) if (Quickshell.screens[i] === candidate) return true
+    return false
+  }
+
+  function validateScreenOwners() {
+    if (!screenAlive(focusController.focusedScreen)) focusController.dropOwnership()
+    if (dragActive && !screenAlive(dragController.dragScreen)) endSlotDrag(false)
+    if (!service) return
+    if (service.actionMenuOpen && !screenAlive(service.actionMenuScreen)) service.closeActionMenu()
+    if (service.dropWheelOpen && !screenAlive(service.dropWheel.wheelScreen)) service.dropWheel.close()
+      if (service.dropWheel.dragActive && !screenAlive(service.dropWheel.dragScreen)) service.dropWheel.cancelDrag()
+  }
+
+  Connections {
+    target: Quickshell
+    function onScreensChanged() { host.validateScreenOwners() }
+  }
   function screenNamed(name) { return bladeLayout.screenNamed(name) }
+  function preferredScreen(edge) { return bladeLayout.preferredScreen(edge) }
+  function referenceScreen(candidate, edge) { return bladeLayout.referenceScreen(candidate, edge) }
+  function bladeScreenName(edge) { return bladeLayout.isOpen(edge) ? bladeLayout.openedOnFor(edge) : "" }
+  readonly property string focusedMonitorName: bladeLayout.focusedMonitorName
+  readonly property var screenNames: bladeLayout.screenNames
   function configuredEdges() { return bladeLayout.configuredEdges() }
   function validIndex(index, length) { return bladeLayout.validIndex(index, length) }
   function validMoveTab(tabIndex, length) { return bladeLayout.validMoveTab(tabIndex, length) }
@@ -244,7 +275,10 @@ Item {
     var target = normalizeEdge(edge)
     if (isOpen(target) === desired) return desired
     if (!desired && focusedEdge === target) restoreWorkspaceFocus()
+    if (desired) bladeLayout.noteOpened(target)
     updateBlade(target, function(blade) { blade.open = desired }, persist)
+    if (desired) bladeOpened(target)
+    if (!desired) bladeLayout.noteClosed(target)
     if (!desired && focusedEdge === target) focusedEdge = ""
     if (!desired && settingsOpen && settingsEdge === target) settingsOpen = false
     return desired
@@ -261,6 +295,7 @@ Item {
       if (!!next[edge].open !== desired) {
         next[edge].open = desired
         changed = true
+        if (desired) bladeOpened(edge)
       }
     }
     if (!desired) {
@@ -505,8 +540,14 @@ Item {
     return placement
   }
 
-  function setMonitorMode(value) {
-    monitorMode = normalizeMonitorMode(value)
+  function setMonitorMode(value, lock) {
+    var mode = normalizeMonitorMode(value)
+    var wanted = String(lock || "")
+    if (mode === "locked" && wanted === "" && String(value || "").toLowerCase() === "primary") wanted = bladeLayout.primaryScreenName
+    if (mode === "locked" && wanted === "") wanted = monitorLock
+    if (mode === "locked" && !screenNamed(wanted)) return "unknown-monitor"
+    monitorMode = mode
+    monitorLock = mode === "locked" ? wanted : ""
     scheduleSave()
     return monitorMode
   }
@@ -543,7 +584,7 @@ Item {
   function orderedSlots() { return focusController.orderedSlots() }
   function focusRelativeSlot(edge, slotIndex, delta, targetScreen) { return focusController.focusRelativeSlot(edge, slotIndex, delta, targetScreen) }
   function focusExpandedNeighbor(edge, index, targetScreen) { return focusController.focusExpandedNeighbor(edge, index, targetScreen) }
-  function reportFocus(edge, focused) { focusController.reportFocus(edge, focused) }
+  function reportFocus(edge, focused, screen) { focusController.reportFocus(edge, focused, screen) }
   function focusDirection(direction) { return focusController.focusDirection(direction) }
   function rememberWorkspaceFocus() { focusController.rememberWorkspaceFocus() }
   function restoreWorkspaceFocus() { return focusController.restoreWorkspaceFocus() }
@@ -636,7 +677,8 @@ Item {
     if (focusedEdge !== "" && !isWindowMode(focusedEdge)) {
       if (dx === 0) return dy === 0 ? "none" : resizeSlotVertical(focusedEdge, dy)
       var edge = focusedEdge
-      var screenWidth = Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 0
+      var reference = referenceScreen(focusedScreen)
+      var screenWidth = reference ? reference.width : 0
       var change = edge === "right" ? -dx : dx
       return "blade-" + String(setWidth(edge, bladeWidth(edge) + change, screenWidth, true))
     }
@@ -678,7 +720,8 @@ Item {
     var list = slots(edge)
     var index = activeSlot(edge)
     if (list.length < 2) return "none"
-    var screenHeight = Quickshell.screens.length > 0 ? Quickshell.screens[0].height : 1440
+    var referenceScreenItem = referenceScreen(focusedScreen)
+    var screenHeight = referenceScreenItem ? referenceScreenItem.height : 1440
     var stackHeight = Math.max(200, screenHeight - Style.bar.sizeHorizontal)
     var geometry = slotGeometry(edge, stackHeight)
     var usable = geometry.expandedSpace
@@ -743,6 +786,7 @@ Item {
       normalized[edges[i]].open = false
     }
     monitorMode = normalizeMonitorMode(desiredMonitorMode || monitorMode)
+    if (monitorMode === "locked" && monitorLock === "") monitorLock = bladeLayout.primaryScreenName
     replaceLayout(normalized, false)
     layoutReady = true
     persisted.hydrated = true
@@ -764,6 +808,7 @@ Item {
     }
     layoutWritable = true
     if (layoutReady) return applyLiveLayout(parsed)
+    if (typeof parsed.monitorLock === "string") monitorLock = parsed.monitorLock
     applyLayout(parsed, parsed.monitorMode || config.monitorMode, false, parsed.animations)
   }
   function applyLayoutResponse(response) {
@@ -779,11 +824,13 @@ Item {
   function applyLiveLayout(parsed) {
     var incoming = normalizeLayout(parsed)
     var desiredMonitorMode = normalizeMonitorMode(parsed.monitorMode || monitorMode)
+    var desiredMonitorLock = typeof parsed.monitorLock === "string" ? parsed.monitorLock : monitorLock
     var desiredAnimations = typeof parsed.animations === "boolean" ? parsed.animations : animateBlades
     var unchanged = JSON.stringify(incoming) === JSON.stringify(normalizeLayout(layout))
-      && desiredMonitorMode === monitorMode && desiredAnimations === animateBlades
+      && desiredMonitorMode === monitorMode && desiredMonitorLock === monitorLock && desiredAnimations === animateBlades
     if (unchanged) return
     monitorMode = desiredMonitorMode
+    monitorLock = desiredMonitorLock
     animateBlades = desiredAnimations
     if (typeof parsed.animations === "boolean") animationsExplicit = true
     replaceLayout(incoming, false)

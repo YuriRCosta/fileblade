@@ -13,6 +13,7 @@ Item {
   property string pendingPath: ""
   property string pendingMode: ""
   property var activeTargetScreen: null
+  property string activeMonitor: ""
   property var pendingTargetScreen: null
   property var activeResponse: null
   property int validationCount: 0
@@ -41,6 +42,7 @@ Item {
     activeMode = normalizedMode(mode)
     activeOrigin = service.normalizeRoot(service.rootPath)
     activeTargetScreen = targetScreen || null
+    activeMonitor = service.bladeHost.focusedMonitorName
     activeResponse = null
     path = target
     error = ""
@@ -63,7 +65,7 @@ Item {
     error = ""
     if (target === service.normalizeRoot(service.rootPath) && service.treeModel.count > 0) {
       cancel(false)
-      if (navigationMode === "direct") service.locationValidationFinished(targetScreen || null, true, service.rootPath, "")
+      if (navigationMode === "direct") service.locationValidationFinished(targetScreen || null, true, service.rootPath, "", service.bladeHost.focusedMonitorName)
       else if (targetScreen) service.focusTree(targetScreen)
       return "current"
     }
@@ -89,7 +91,7 @@ Item {
     } else {
       service.setRootPath(target)
     }
-    if (mode === "direct") service.locationValidationFinished(targetScreen || null, true, target, "")
+    if (mode === "direct") service.locationValidationFinished(targetScreen || null, true, target, "", service.bladeHost.focusedMonitorName)
     else if (targetScreen) service.focusTree(targetScreen)
     return "opened"
   }
@@ -210,6 +212,7 @@ Item {
       mode: normalizedMode(activeMode),
       origin: activeOrigin,
       screen: activeTargetScreen,
+      monitor: activeMonitor,
       response: activeResponse,
       nextPath: pendingPath,
       nextMode: pendingMode,
@@ -239,7 +242,7 @@ Item {
     error = request.mode === "favorite"
       ? "Favorite is unavailable: " + request.path + " — " + validationError
       : validationError
-    if (request.mode === "direct") service.locationValidationFinished(request.screen, false, request.path, validationError)
+    if (request.mode === "direct") service.locationValidationFinished(request.screen, false, request.path, validationError, String(request.monitor || ""))
   }
 
   function handleHistoryFailure(request) {
@@ -272,8 +275,9 @@ Item {
     } else {
       service.setRootPath(destination)
     }
-    if (request.mode === "direct") service.locationValidationFinished(request.screen, true, destination, "")
-    else if (request.screen) service.focusTree(request.screen)
+    var late = String(request.monitor || "") !== service.bladeHost.focusedMonitorName
+    if (request.mode === "direct") service.locationValidationFinished(request.screen, true, destination, "", String(request.monitor || ""))
+    else if (request.screen && !late) service.focusTree(request.screen)
   }
 
   function restartRecoveryNotice() { recoveryNoticeTimer.restart() }

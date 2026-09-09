@@ -84,7 +84,7 @@ Item {
     service.clearSelection()
     service.setOpen(true)
     if (options.root) {
-      var target = Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+      var target = service.referenceScreen(null)
       service.navigateToLocation(String(options.root), target, "browse")
     }
     return requestId

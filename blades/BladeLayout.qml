@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell.Hyprland
+import "../lib/MonitorMode.js" as MonitorMode
 import Quickshell
 
 Item {
@@ -26,8 +28,59 @@ Item {
   }
 
   function normalizeMonitorMode(value) {
-    return String(value || "").toLowerCase() === "primary" ? "primary" : "all"
+    return MonitorMode.normalize(value)
   }
+
+  readonly property string focusedMonitorName: Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
+  readonly property string primaryScreenName: Quickshell.screens.length > 0 ? String(Quickshell.screens[0].name || "") : ""
+  readonly property string monitorLock: host.monitorLock
+  property var openedOn: ({ left: "", right: "" })
+  readonly property var screenNames: {
+    var names = []
+    for (var i = 0; i < Quickshell.screens.length; i++) names.push(String(Quickshell.screens[i].name || ""))
+    return names
+  }
+
+  function openedOnFor(edge) {
+    return String(openedOn[normalizeEdge(edge)] || "")
+  }
+
+  function noteOpened(edge) {
+    var target = normalizeEdge(edge)
+    var next = { left: openedOn.left, right: openedOn.right }
+    next[target] = MonitorMode.invocationName(monitorMode, { lock: monitorLock, focused: focusedMonitorName })
+    openedOn = next
+  }
+
+  function noteClosed(edge) {
+    var target = normalizeEdge(edge)
+    var next = { left: openedOn.left, right: openedOn.right }
+    next[target] = ""
+    openedOn = next
+  }
+
+  property string lastFocusedMonitorName: ""
+
+  function adoptInvocationScreens() {
+    var next = { left: openedOn.left, right: openedOn.right }
+    var changed = false
+    for (var i = 0; i < edges.length; i++) {
+      var edge = edges[i]
+      var wanted = isOpen(edge) ? MonitorMode.invocationName(monitorMode, { lock: monitorLock, focused: focusedMonitorName }) : ""
+      if (monitorMode === "active" && isOpen(edge) && next[edge] !== "") continue
+      if (next[edge] !== wanted) { next[edge] = wanted; changed = true }
+    }
+    if (changed) openedOn = next
+  }
+
+  onFocusedMonitorNameChanged: {
+    var previous = lastFocusedMonitorName
+    lastFocusedMonitorName = focusedMonitorName
+    if (previous === "" && focusedMonitorName !== "") adoptInvocationScreens()
+  }
+  onMonitorModeChanged: adoptInvocationScreens()
+  onMonitorLockChanged: adoptInvocationScreens()
+  onLayoutChanged: adoptInvocationScreens()
 
   function normalizeMode(value) {
     return String(value || "").toLowerCase() === "window" ? "window" : "docked"
@@ -185,7 +238,7 @@ Item {
   }
 
   function layoutWithinLimit(next) {
-    var text = serialized({ version: 1, monitorMode: monitorMode, animations: animateBlades, blades: next }, 2)
+    var text = serialized({ version: 1, monitorMode: monitorMode, monitorLock: monitorLock, animations: animateBlades, blades: next }, 2)
     return !!text && utf8Length(text + "\n") <= maximumLayoutBytes
   }
 
@@ -461,7 +514,7 @@ Item {
   }
 
   function layoutDocument() {
-    return { version: 1, monitorMode: monitorMode, animations: animateBlades, blades: cloneLayout(layout) }
+    return { version: 1, monitorMode: monitorMode, monitorLock: monitorLock, animations: animateBlades, blades: cloneLayout(layout) }
   }
 
   function activeSlot(edge) {
@@ -471,15 +524,36 @@ Item {
     return count === 0 ? 0 : Math.max(0, Math.min(count - 1, index))
   }
 
-  function panelActiveFor(panelScreen) {
-    if (monitorMode === "all") return true
-    return Quickshell.screens.length > 0 && panelScreen === Quickshell.screens[0]
+  function panelActiveFor(panelScreen, edge) {
+    if (!panelScreen) return false
+    var name = String(panelScreen.name || "")
+    if (edge !== undefined && edge !== null && edge !== "")
+      return MonitorMode.eligible(monitorMode, name, { lock: monitorLock, openedOn: openedOnFor(edge) })
+    for (var i = 0; i < edges.length; i++)
+      if (MonitorMode.eligible(monitorMode, name, { lock: monitorLock, openedOn: openedOnFor(edges[i]) })) return true
+    return monitorMode !== "active" && MonitorMode.eligible(monitorMode, name, { lock: monitorLock, openedOn: "" })
   }
 
   function screenNamed(name) {
     var wanted = String(name || "")
     for (var i = 0; i < Quickshell.screens.length; i++)
       if (wanted !== "" && String(Quickshell.screens[i].name) === wanted) return Quickshell.screens[i]
+    return null
+  }
+
+  function preferredScreen(edge) {
+    var openedName = ""
+    if (edge !== undefined && edge !== null && edge !== "") openedName = isOpen(edge) ? openedOnFor(edge) : ""
+    else for (var i = 0; i < edges.length; i++) if (isOpen(edges[i]) && openedOnFor(edges[i]) !== "") { openedName = openedOnFor(edges[i]); break }
+    var named = screenNamed(MonitorMode.preferredName(monitorMode, { openedOn: openedName, lock: monitorLock, focused: focusedMonitorName, primary: primaryScreenName }))
+    if (named) return named
+    return monitorMode === "all" && Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+  }
+
+  function referenceScreen(candidate, edge) {
+    if (candidate && panelActiveFor(candidate, edge)) return candidate
+    var preferred = preferredScreen(edge)
+    if (preferred) return preferred
     return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
   }
 

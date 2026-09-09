@@ -60,7 +60,18 @@ FloatingWindow {
 
   title: host.windowTitle(edge)
   visible: bladeOpen
-  screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+  property var creationScreen: null
+  screen: creationScreen
+
+  function chooseCreationScreen() {
+    creationScreen = host.referenceScreen(null, edge) || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+  }
+
+  onWindowModeChanged: {
+    if (windowMode) chooseCreationScreen()
+    else creationScreen = null
+  }
+  Component.onCompleted: if (windowMode) chooseCreationScreen()
   color: Color.bar.background
   minimumSize: Qt.size(host.minimumWidth, Style.space(240))
   implicitWidth: bladeWidth
@@ -111,7 +122,7 @@ FloatingWindow {
     anchors.bottomMargin: window.footerHeight
 
     onActiveFocusChanged: {
-      window.host.reportFocus(window.edge, activeFocus)
+      window.host.reportFocus(window.edge, activeFocus, window.screen)
       if (activeFocus && !window.host.windowAddress(window.edge)) placementTimer.restart()
     }
 

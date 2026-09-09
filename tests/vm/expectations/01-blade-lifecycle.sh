@@ -34,10 +34,14 @@ wait_for "[[ -z \$(field focusedBlade) ]]" 10
 expect E-01-08 "clicking a window releases blade focus" focusedBlade ""
 
 ensure_left_open
+expect E-01-04 "precondition: the blade is open and unfocused" focusedBlade ""
+ctl toggleBladeFocus left
+wait_for "[[ \$(blade_layer left) == 0 ]]" 12
+expect_true E-01-04 "super+b on an unfocused open blade hides it" "[[ \$(blade_layer left) == 0 ]]"
+expect E-01-04 "and it stays unfocused" focusedBlade ""
 ctl toggleBladeFocus left
 wait_for "[[ \$(field focusedBlade) == left ]]" 12
-expect E-01-04 "super+b on an unfocused open blade focuses it" focusedBlade left
-expect E-01-04 "and leaves it open" open true
+expect E-01-04 "the next press opens and focuses it again" focusedBlade left
 
 # Keys must reach the blade, not the window, while a window is the last active one.
 "$OVM" ssh 'pkill -x foot' >/dev/null 2>&1; sleep 1

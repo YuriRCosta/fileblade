@@ -41,6 +41,24 @@ is no install hook, runtime build, or first-run executable download. Maintainer
 builds use the pinned Rust toolchain and locked dependencies; `tests/run`
 checks the bundled checksum, source fingerprint, and byte-identical rebuild.
 These checks establish correspondence, not trust in the source or publisher.
+
+Anyone can establish that correspondence themselves, without trusting the
+publisher's checksum, because the bundle is a reproducible build:
+
+```bash
+git clone https://github.com/data-goblin/fileblade
+cd fileblade && git checkout <commit>
+tools/bundle verify
+```
+
+That rebuilds the backend with the toolchain pinned in `rust-toolchain.toml`
+against `x86_64-unknown-linux-musl`, with locked dependencies, static linking,
+no stripping, and the checkout, cargo home and target directories remapped out
+of the binary, then compares the result byte for byte with the committed
+`fileblade-bin` and fails if they differ. The build does not depend on where
+the repository sits or which machine runs it, so a matching rebuild shows the
+shipped bytes are that commit's source. What a user installs is the binary
+inside the cloned commit; the release asset is a copy of the same bytes.
 The update checker only
 fetches Git objects and reads repository state; it never merges, resets,
 validates, builds, or rescans plugins, and it never changes checked-out source.

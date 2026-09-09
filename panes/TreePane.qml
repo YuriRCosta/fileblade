@@ -437,18 +437,19 @@ FocusScope {
     function onTreeStructureRevisionChanged() { root.restoreTreeCursor() }
     function onSelectedPathChanged() { root.revealPending = true; root.restoreTreeCursor() }
     function onRootPathChanged() { treeKeys.reset() }
-    function onLocationValidationFinished(targetScreen, success, path, error) {
+    function onLocationValidationFinished(targetScreen, success, path, error, monitor) {
       if (!root.focusEnabled || !root.matchesScreen(targetScreen)) return
-      if (success) {
-        root.locationEditing = false
-        Qt.callLater(root.focusTree)
-      } else {
-        root.locationEditing = true
-        Qt.callLater(function() {
-          locationField.forceActiveFocus()
-          locationField.selectAll()
-        })
-      }
+      var requested = String(monitor || "")
+      root.locationEditing = !success
+      Qt.callLater(function() {
+        if (!root.focusEnabled || requested !== root.controller.bladeHost.focusedMonitorName) return
+        if (success) {
+          root.focusTree()
+          return
+        }
+        locationField.forceActiveFocus()
+        locationField.selectAll()
+      })
     }
   }
 
@@ -978,26 +979,22 @@ FocusScope {
     actionKeys: root.actionKeys
     anchors.fill: parent
     z: 95
-    property var pendingPaths: []
     onChosen: function(key) {
-      var paths = trashDialog.pendingPaths
-      trashDialog.pendingPaths = []
-      if (key === "trash") root.controller.trashSelection(paths)
+      trashConfirmation.resolve(key)
       root.focusTree()
     }
     onCanceled: {
-      trashDialog.pendingPaths = []
+      trashConfirmation.resolve("cancel")
       root.focusTree()
     }
   }
 
-  Connections {
-    target: root.controller
-    ignoreUnknownSignals: true
-    function onTrashConfirmationRequested(paths) {
-      if (!root.visible || !root.context || !root.context.bladeOpen) return
-      trashDialog.pendingPaths = paths
-      trashDialog.open(root.trashPrompt(paths), [{ key: "cancel", label: "Cancel" }, { key: "trash", label: "Move to Trash", danger: true }])
-    }
+  PluginUi.TrashConfirmationBinding {
+    id: trashConfirmation
+    controller: root.controller
+    dialog: trashDialog
+    paneVisible: root.visible && !!root.context && root.context.bladeOpen
+    choices: [{ key: "cancel", label: "Cancel" }, { key: "trash", label: "Move to Trash", danger: true }]
+    promptFor: function(paths) { return root.trashPrompt(paths) }
   }
 }

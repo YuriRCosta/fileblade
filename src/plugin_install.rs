@@ -10,19 +10,19 @@ pub struct Extension {
 pub const EXTENSIONS: &[Extension] = &[
     Extension {
         url: "https://github.com/data-goblin/fileblade-memory.git",
-        commit: "dc40266d5f6407ea2cae02fb48435d3032ffe854",
+        commit: "3a3fd33263b12d15c6d7982f1503e6daedc265ce",
     },
     Extension {
         url: "https://github.com/data-goblin/fileblade-skills.git",
-        commit: "0915f6513296bb5a5ced7e972c72bc561a83818c",
+        commit: "742b5f3e142f8eacba9aba766bcc67d3f86e7be2",
     },
     Extension {
         url: "https://github.com/data-goblin/fileblade-mcp.git",
-        commit: "dc4fd8f53fad106d77dd90f8b20f609fce4576db",
+        commit: "5dc90ae98eeaf1f10185941d344f317540242441",
     },
     Extension {
         url: "https://github.com/data-goblin/fileblade-hooks.git",
-        commit: "f62527bc60302b522a5fb8d7529a1ae743370bcd",
+        commit: "5b91b08b6f6c47e22284031ccaa6ad541d0ba54d",
     },
 ];
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(180);

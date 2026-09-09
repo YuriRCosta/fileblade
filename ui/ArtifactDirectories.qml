@@ -129,14 +129,31 @@ Item {
       directories.refresh()
     }, function(response) {
       if (directories.watch !== pending) return
-      if (response && Array.isArray(response.skipped) && response.skipped.length)
-        directories.watchError = "Some folders could not be watched; refresh to retry"
+      directories.watchFailures = 0
+      directories.watchError = response && Array.isArray(response.skipped) && response.skipped.length
+        ? "Some folders could not be watched; refresh to retry" : ""
       directories.refresh()
     }, function(response) {
       if (directories.watch !== pending) return
       directories.watch = null
-      if (!response || !response.cancelled) directories.watchError = "Folder watch stopped; refresh to retry"
+      if (response && response.cancelled) return
+      directories.watchError = "Folder watch stopped; retrying"
+      directories.watchFailures++
+      watchRetry.interval = Math.min(60000, 2000 * Math.pow(2, Math.min(5, directories.watchFailures)))
+      watchRetry.restart()
     })
+  }
+
+  property int watchFailures: 0
+
+  Timer {
+    id: watchRetry
+    repeat: false
+    onTriggered: {
+      if (!directories.active || directories.watch) return
+      directories.startWatch()
+      directories.refresh()
+    }
   }
 
   onPathsChanged: Qt.callLater(reconcile)

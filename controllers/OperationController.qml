@@ -305,6 +305,8 @@ Item {
     if (targets.length === 0) return ""
     if (!service.confirmTrash) return trashSelection(targets)
     service.closeActionMenu()
+    service.pendingTrashPaths = targets.slice()
+    service.trashConfirmationSerial++
     service.trashConfirmationRequested(targets.slice())
     return "confirm"
   }

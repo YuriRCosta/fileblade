@@ -235,6 +235,26 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
         "{ key: \"close\", glyph: \"×\", label: \"Close tab\", enabled: bar.slot.tabs.length > 1 }"
     ));
     assert!(tab_bar.contains("bar.slot.requestCloseTab"));
+    let slot = text(&root.join("blades/BladeSlot.qml"));
+    assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index, slotId)"));
+    assert!(slot.contains("if (tabs.length > 1 && TabIdentity.matches(tabs, slotId, target)) host.removeTab(edge, slotIndex, index)"));
+    assert!(slot.contains("onTabsChanged: dropStaleCloseTab()"));
+    assert!(slot.contains("onSlotIdChanged: { dropStaleCloseTab();"));
+    assert_eq!(
+        slot.matches("onSlotIdChanged").count(),
+        1,
+        "one handler per signal"
+    );
+    let location = text(&root.join("controllers/LocationController.qml"));
+    assert!(location.contains(
+        "var late = String(request.monitor || \"\") !== service.bladeHost.focusedMonitorName"
+    ));
+    let navigation = text(&root.join("controllers/NavigationController.qml"));
+    assert!(navigation.contains("focusTarget = targetScreen || service.preferredScreen() || null"));
+    assert!(navigation.contains(
+        "var screen = controller.focusTarget
+"
+    ));
     assert!(tab_bar.contains("closePointer.containsMouse ? Color.urgent"));
     assert!(tab_bar.contains("last.width + Math.round(tabRow.spacing / 2)"));
     assert!(!tab_bar.contains(
@@ -582,7 +602,98 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     assert!(host.contains("function windowToggle()"));
     assert!(host.contains("dispatchWindow([\"--action\", \"float\"])"));
 
+    let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
+    for name in [
+        "controllers/FileTreeIpc.qml",
+        "controllers/PickerController.qml",
+        "controllers/NavigationController.qml",
+        "controllers/SearchController.qml",
+        "controllers/ActionMenuController.qml",
+        "controllers/DropWheelController.qml",
+        "Service.qml",
+        "blades/BladeHost.qml",
+    ] {
+        assert!(
+            !text(&root.join(name)).contains("Quickshell.screens[0]"),
+            "{name} must resolve screens through BladeLayout.preferredScreen/referenceScreen"
+        );
+    }
+    let layout = text(&root.join("blades/BladeLayout.qml"));
+    assert!(layout.contains("import \"../lib/MonitorMode.js\" as MonitorMode"));
+    assert!(
+        layout.contains(
+            "Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || \"\") : \"\""
+        )
+    );
+    assert!(layout.contains("function panelActiveFor(panelScreen, edge)"));
+    assert!(layout.contains("function noteOpened(edge)"));
+    assert!(layout.contains("monitorLock: monitorLock, animations: animateBlades"));
+    assert!(ipc.contains("function setMonitorMode(mode: string, monitor: string): string"));
+    assert!(ipc.contains("focusedMonitor: bladeHost.focusedMonitorName,"));
+    assert!(ipc.contains("bladeScreens: { left: bladeHost.bladeScreenName(\"left\"), right: bladeHost.bladeScreenName(\"right\") },"));
+    assert!(
+        ipc.contains("if (String(monitor || \"\") !== \"\" && !screen) return \"unknown-monitor\"")
+    );
+    assert!(ipc.contains("if (!target) return \"off-screen\""));
+    assert!(ipc.contains("pendingTrashCount: Array.isArray(service.pendingTrashPaths) ? service.pendingTrashPaths.length : 0,"));
+    let settings_sheet = text(&root.join("blades/BladeSettings.qml"));
+    assert!(settings_sheet.contains("label: \"Monitors\""));
+    assert!(settings_sheet.contains("PluginUi.DropdownRow {"));
+    let dropdown = text(&root.join("ui/DropdownRow.qml"));
+    assert!(dropdown.contains("OptionPopup {"));
+    assert!(dropdown.contains("checked: String(option.key) === row.value"));
     let focus = text(&root.join("blades/BladeFocusController.qml"));
+    assert!(focus.contains("function reconcileOwnership()"));
+    let surface_text = text(&root.join("blades/BladeSurface.qml"));
+    assert!(
+        surface_text.contains("openedAt = Date.now()\n      pointerRefocusRequired = true"),
+        "a surface that maps under a stationary pointer must wait for movement before taking focus"
+    );
+    assert!(
+        !focus.contains("focusedmon\" && host.monitorMode"),
+        "blades must not follow monitor focus; they stay where they were invoked"
+    );
+    assert!(focus.contains("if (!isWindowMode(target) && screen && isOpen(target) && !host.panelActiveFor(screen, target)) return false"));
+    let host_text = text(&root.join("blades/BladeHost.qml"));
+    assert!(host_text.contains("if (desired) bladeLayout.noteOpened(target)"));
+    assert!(
+        host_text.contains(
+            "if (mode === \"locked\" && !screenNamed(wanted)) return \"unknown-monitor\""
+        )
+    );
+    assert!(
+        surface_text.contains("readonly property int bladeWidth: Math.max(host.minimumWidth, Math.min(liveWidth > 0 ? liveWidth : storedWidth, surfaceWidth))"),
+        "each surface clamps its rendered width to its own screen without rewriting the stored width"
+    );
+    assert!(
+        ipc.contains("return bladeHost.toggleBladeFocus(edge, bladeHost.preferredScreen(edge))")
+    );
+    assert!(ipc.contains(
+        "return bladeHost.toggleBladeFocus(\"left\", bladeHost.preferredScreen(\"left\"))"
+    ));
+    assert!(ipc.contains("? \"focused\" : \"no-screen\""));
+    assert!(focus.contains("? \"opened\" : \"no-screen\""));
+    assert!(layout.contains("onLayoutChanged: adoptInvocationScreens()"));
+    assert!(layout.contains(
+        "if (previous === \"\" && focusedMonitorName !== \"\") adoptInvocationScreens()"
+    ));
+    assert!(host_text.contains("function validateScreenOwners()"));
+    assert!(host_text.contains("function onScreensChanged() { host.validateScreenOwners() }"));
+    assert_eq!(
+        focus
+            .matches("\"--left-monitor\", host.bladeScreenName(\"left\"),")
+            .count(),
+        2
+    );
+    let native_window = text(&root.join("blades/BladeWindow.qml"));
+    assert!(native_window.contains("screen: creationScreen"));
+    assert!(native_window.contains("if (windowMode) chooseCreationScreen()"));
+    assert!(
+        native_window.contains("window.host.reportFocus(window.edge, activeFocus, window.screen)")
+    );
+    assert!(focus.contains("if (screen) focusedScreen = screen"));
+    let wheel = text(&root.join("controllers/DropWheelController.qml"));
+    assert!(wheel.contains("wheelScreen = targetScreen || service.referenceScreen(null)"));
     assert!(focus.contains("function bladePointerExited(edge, screen)"));
     assert!(focus.contains("service.backendRequest(\"hover-target\""));
     assert!(!focus.contains("hover-watch"));
@@ -654,9 +765,38 @@ fn trash_asks_first_with_cancel_selected_unless_the_setting_is_off() {
     let menu = text(&root.join("panes/FileActionsMenu.qml"));
     let settings = text(&root.join("modules/files/FilesSettings.qml"));
     assert!(state.contains("property bool confirmTrash: true"));
+    let focus = text(&root.join("blades/BladeFocusController.qml"));
+    assert!(focus.contains("function toggleBladeFocus(edge, targetScreen)"));
+    assert!(
+        !focus.contains("return \"focused\""),
+        "toggleBladeFocus must close an open blade in one press instead of focusing it"
+    );
     assert!(operations.contains("function requestTrash(paths)"));
     assert!(operations.contains("if (!service.confirmTrash) return trashSelection(targets)"));
     assert!(tree.contains("trash: function() { controller.requestTrash() }"));
+    let service = text(&root.join("Service.qml"));
+    assert!(service.contains("property var pendingTrashPaths: []"));
+    assert!(service.contains("function resolveTrashConfirmation(confirm)"));
+    assert!(operations.contains("service.pendingTrashPaths = targets.slice()"));
+    assert!(service.contains("property int trashConfirmationSerial: 0"));
+    assert!(operations.contains("service.trashConfirmationSerial++"));
+    let binding = text(&root.join("ui/TrashConfirmationBinding.qml"));
+    assert!(binding.contains("if (binding.dialog.opened) binding.dialog.close()"));
+    assert!(
+        binding
+            .contains("binding.requestSerial = Number(binding.controller.trashConfirmationSerial)")
+    );
+    assert!(binding.contains("if (!current) {"));
+    assert!(binding.contains("onPaneVisibleChanged: if (!paneVisible) retire()"));
+    assert!(binding.contains("Component.onDestruction: retire()"));
+    assert!(tree.contains("PluginUi.TrashConfirmationBinding {"));
+    assert!(tree.contains("trashConfirmation.resolve(key)"));
+    assert!(tree.contains("trashConfirmation.resolve(\"cancel\")"));
+    assert!(!tree.contains("function onTrashConfirmationRequested(paths)"));
+    assert!(
+        !tree.contains("property var pendingPaths: []"),
+        "the trash confirmation must not keep per-screen pending paths"
+    );
     assert!(!tree.contains("openMenuForCurrent(view, \"trash\")"));
     assert!(tree.contains("[{ key: \"cancel\", label: \"Cancel\" }, { key: \"trash\", label: \"Move to Trash\", danger: true }]"));
     assert!(properties.contains("trash: function() { controller.requestTrash() }"));
@@ -908,9 +1048,40 @@ fn contributed_blade_modules_receive_their_singleton_provider_service() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let registry = text(&root.join("blades/BladeRegistry.qml"));
     assert!(registry.contains("providerId: boundedText(idPrefix, \"\", maximumIdLength)"));
+    assert!(
+        registry.contains(
+            "normalizedModule(contributed[i], directory, \"plugin:\" + pluginId, pluginId)"
+        )
+    );
     assert!(registry.contains(
-        "normalizedModule(contributed[i], manifest.__sourceDir, \"plugin:\" + pluginId, pluginId)"
+        "var directory = sourceDir === undefined || sourceDir === null || sourceDir === \"\" ? manifest.__sourceDir : sourceDir"
     ));
+    assert!(
+        registry.contains("property var catalogProviders: []"),
+        "the registry accepts providers the shell no longer discloses"
+    );
+    let host = text(&root.join("blades/BladeHost.qml"));
+    assert!(
+        host.contains("signal bladeOpened(string edge)")
+            && host.contains("if (desired) bladeOpened(target)"),
+        "opening one blade is observable even while another blade is already open"
+    );
+    let catalog = text(&root.join("controllers/ExtensionCatalog.qml"));
+    assert!(catalog.contains("function requestRefresh()"));
+    assert!(
+        catalog.contains("path.indexOf(\"/plugins\") >= 0 || path.indexOf(\"shell.json\") >= 0"),
+        "an enable or disable that only rewrites the shell configuration wakes the catalog"
+    );
+    let service_wiring = text(&root.join("Service.qml"));
+    assert!(
+        service_wiring.contains("function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }"),
+        "a blade opening re-reads a stale catalog"
+    );
+    assert!(
+        service_wiring.contains("service.home + \"/.config/omarchy\"")
+            && !service_wiring.contains("/.config/omarchy/shell.json\""),
+        "the catalog watches directories, which is all the subscription accepts"
+    );
 
     let slot = text(&root.join("blades/BladeSlot.qml"));
     assert!(slot.contains(
@@ -1586,7 +1757,7 @@ fn declarative_settings_render_through_one_form_and_one_coercion_path() {
     assert!(slot.contains("BladeModuleLoader {"));
     assert!(slot.contains("loader.loadModule(entryUrl)"));
     assert!(slot.contains("onModuleIdChanged: scheduleReload()"));
-    assert!(slot.contains("onSlotIdChanged: scheduleReload()"));
+    assert!(slot.contains("onSlotIdChanged: { dropStaleCloseTab(); scheduleReload() }"));
     assert!(slot.contains("definition: slot.moduleInfo"));
     let sheet = text(&root.join("blades/BladeSettings.qml"));
     assert!(sheet.contains("var context = item.settingsContext || null"));
@@ -1878,7 +2049,13 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
     assert!(controller.contains("import \"../lib/ActionRows.js\" as ActionRows"));
     assert!(!controller.contains("Process"));
     let service = text(&root.join("Service.qml"));
-    assert!(service.contains("services: ({ files: service, actions: actionController })"));
+    assert!(service.contains("var map = ({ files: service, actions: actionController })"));
+    assert!(
+        service.contains(
+            "for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]"
+        ),
+        "a contributed provider reaches its module through the services map"
+    );
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
     assert!(ipc.contains("function actions(): string"));
     assert!(ipc.contains("function actionResult(requestId: string): string"));
@@ -1919,4 +2096,75 @@ fn no_automatic_agent_instruction_path_is_installed_with_the_plugin() {
     assert!(guidelines.contains("# Instructions for agents"));
     let contributing = text(&root.join("CONTRIBUTING.md"));
     assert!(contributing.contains("[docs/agent-guidelines.md](docs/agent-guidelines.md)"));
+}
+
+#[test]
+fn qml_objects_do_not_bind_the_same_signal_twice() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut offenders = Vec::new();
+    for path in files(root, &["qml"]) {
+        let source = text(&path);
+        let mut scopes: Vec<Vec<String>> = vec![Vec::new()];
+        let mut in_string: Option<char> = None;
+        let mut in_block_comment = false;
+        for (line_number, line) in source.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if !in_block_comment
+                && in_string.is_none()
+                && let Some(rest) = trimmed.strip_prefix("on")
+            {
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                if name.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && rest[name.len()..].starts_with(':')
+                {
+                    let handler = format!("on{name}");
+                    let scope = scopes.last_mut().unwrap();
+                    if scope.contains(&handler) {
+                        offenders.push(format!(
+                            "{}:{}: {handler} bound twice in one object",
+                            path.display(),
+                            line_number + 1
+                        ));
+                    } else {
+                        scope.push(handler);
+                    }
+                }
+            }
+            let mut chars = line.chars().peekable();
+            while let Some(c) = chars.next() {
+                if in_block_comment {
+                    if c == '*' && chars.peek() == Some(&'/') {
+                        chars.next();
+                        in_block_comment = false;
+                    }
+                    continue;
+                }
+                if let Some(quote) = in_string {
+                    if c == '\\' {
+                        chars.next();
+                    } else if c == quote {
+                        in_string = None;
+                    }
+                    continue;
+                }
+                match c {
+                    '/' if chars.peek() == Some(&'/') => break,
+                    '/' if chars.peek() == Some(&'*') => {
+                        chars.next();
+                        in_block_comment = true;
+                    }
+                    '"' | '\'' | '`' => in_string = Some(c),
+                    '{' => scopes.push(Vec::new()),
+                    '}' if scopes.len() > 1 => {
+                        scopes.pop();
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert!(offenders.is_empty(), "{}", offenders.join("\n"));
 }

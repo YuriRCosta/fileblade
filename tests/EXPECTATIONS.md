@@ -48,7 +48,8 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 3. **E-01-03** If I press `Super+B` while the left blade is open and focused,
    the blade hides completely.
 4. **E-01-04** If I have the left blade open but not focused, pressing `Super+B`
-   focuses it instead of hiding it.
+   hides it: one press closes an open blade wherever my focus is, and one
+   press opens and focuses a hidden one.
 5. **E-01-05** If I press `Super+Shift+B`, the right blade opens and takes focus
    without hiding the left blade.
 6. **E-01-06** After I focus a blade, my keyboard input controls the blade and
@@ -385,7 +386,11 @@ keeps the bars visible. The choice survives a shell restart.
 Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 
 113. **E-14-01** If I select items and press `d` or `Delete`, FileBlade asks me
-     to confirm before moving them to Trash.
+     to confirm before moving them to Trash. With blades on several monitors
+     the confirmation appears on each of them, answering it on any one monitor
+     closes it on all the others, and confirming once moves the items once. A
+     confirmation left open on a hidden blade never answers a newer request:
+     the newer request replaces it, and a stale prompt only closes.
 114. **E-14-02** If I cancel the trash confirmation, the selected items remain
      in their original locations.
 115. **E-14-03** If I confirm the trash action, the items disappear from their
@@ -562,8 +567,23 @@ Automation for this section is pending.
      normal window-swap behavior remains unchanged.
 178. **E-21-09** If I turn blade animations off, blades appear and disappear
      without sliding; turning animations on restores the slide.
-179. **E-21-10** On a multi-monitor setup, blades appear only on the screens I
-     configured and interact with windows on the same screen.
+179. **E-21-10** On a multi-monitor setup, blades appear only where the
+     Monitors setting allows and interact with windows on the same screen. The
+     Monitors dropdown in Settings offers Active (the default), All, and one
+     "Lock to" entry per detected monitor. With Active, a blade opens on the
+     monitor I am working on and stays there; it does not follow my focus. If
+     I press its shortcut while working on another monitor, the open blade
+     closes, and the next press opens it on the monitor I am on. With a lock,
+     blades only ever appear on that monitor and the shortcuts act there
+     wherever I am. My layout, notes and selection are the same on every
+     monitor. See section 34 for the two-monitor checks.
+179b. **E-21-10b** If a monitor is unplugged, a blade that was invoked or
+     locked there stays hidden until I close and reopen it or the monitor
+     returns; a menu, drop wheel, drag or keyboard focus that lived on it is
+     cancelled rather than moved; my lock setting is kept.
+179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
+     smaller monitor can show: on that monitor the blade renders and reserves
+     at most its own screen's limit, and my stored width is left alone.
 
 ## 22. Adding and managing module tabs
 
@@ -588,6 +608,9 @@ Automation for the remaining tab-management scenarios is pending.
      row and remains after reopening the blade; clearing the name restores its
      normal module title.
 185. **E-22-06** If I close a tab with its `×`, FileBlade asks for confirmation;
+     if the section's tabs change while that question is open, for example
+     from another monitor, the question closes instead of removing a
+     different tab;
      middle-clicking a tab closes it directly.
 186. **E-22-07** I cannot close the only tab in a section by mistake; I remove the
      whole section from Settings when that is what I intend.
@@ -742,6 +765,17 @@ two selected files. Over a plain terminal or empty desktop, Hunk opens directly
 in a new terminal without offering multiplexer destinations.
 Covered by `tests/vm/expectations/26-hunk-review.sh`.
 
+**E-26-12** If the terminal I drop on shares one process with other windows
+(ghostty, kitty in single-instance mode, foot in server mode, wezterm), the
+wheel only offers pane, tab, space and paste placements when it can tell
+which window I dropped on: for Herdr that is the window whose title names
+exactly one workspace across my Herdr sessions, checked again when I pick a
+placement. Otherwise the target reads "shared window", those placements are
+missing, the same goes for "This nvim", and picking one anyway is refused
+with the reason; New terminal and Review with hunk in a new window still
+work. tmux gives no way to tell such windows apart, so it always counts as
+shared there.
+
 ## 27. Updates and recovery
 
 `tests/vm/expectations/27-updates-recovery.sh`
@@ -865,3 +899,80 @@ shell. Once FileBlade is enabled, the pop-up disappears.
      ruler thumb stays.
 260. **E-31-06** Extension trees loaded through `ArtifactTree` show the same
      ruler and keep their scroll position when their rows refresh.
+
+## 34. Choosing a monitor
+
+`tests/vm/expectations/34-monitors.sh` uses two outputs in a disposable VM,
+including fractional scaling, a gap, a negative origin, and disconnection.
+It compares per-output layers, reserved space, real keyboard input and
+screenshots, including trash-request cancellation when its owner retires.
+Settings pointer checks are exercised separately; delayed-focus and unknown
+startup targets also have deterministic QML coverage.
+
+- **E-34-01** With Active selected, a blade opens on the monitor where I invoke
+  it and stays there while I work on another monitor. Only its own monitor
+  reserves space, and typing still reaches the application I focus elsewhere.
+- **E-34-02** Either blade's shortcut closes that blade in one press, even
+  while I work on another monitor. The next press opens and focuses it on the
+  monitor I am using. A closed blade has no remembered invocation monitor.
+- **E-34-03** I can keep the left blade on one monitor and the right blade on
+  another. Their sections, tabs, notes and width preferences still belong to
+  one shared layout. Opening or closing all blades follows the same rule.
+- **E-34-04** A monitor lock makes both shortcuts act on that monitor wherever
+  I am working. An unknown lock or explicit ineligible target is rejected
+  without redirecting the request or changing my settings.
+- **E-34-05** All mirrors the blades on every output. An older Primary setting
+  becomes a lock to the first detected monitor.
+- **E-34-06** If a locked monitor disconnects, its blades disappear without
+  moving elsewhere. The lock remains saved, opening reports no available
+  screen, and the blades become eligible when that named monitor returns.
+- **E-34-07** If an Active blade's monitor disconnects, the blade does not
+  migrate. Its shortcut first closes the unavailable blade; another press
+  opens it on the monitor where I am now working.
+- **E-34-08** The selection wheel can open on an explicitly targeted output,
+  regardless of the blade's monitor lock. A point between or outside outputs
+  is rejected without showing an offscreen wheel.
+- **E-34-09** Restarting preserves my shared layout and monitor setting.
+  Restored open Active blades use the first focused monitor reported after
+  startup; a saved lock continues to use its named monitor.
+- **E-34-10** Moving focus to another monitor does not transfer or cancel a
+  pending trash question. Changing the mode or lock so its owner is no longer
+  eligible cancels the question and leaves the files untouched.
+- **E-34-11** Settings lists Active, All, and a lock for each detected output.
+  Choosing a value changes where blades appear, and Escape dismisses Settings.
+- **E-34-12** A delayed navigation result keeps its original target. If I have
+  moved to another monitor, it may finish loading data but must not steal
+  keyboard focus. No blade chooses an arbitrary output before the focused
+  monitor is known.
+
+- **E-34-13** A hover or drop over a visible window on another monitor
+  recognizes that window even while I work elsewhere. Explicitly focusing a
+  window on another monitor's visible workspace works too.
+- **E-34-14** Directional focus reaches a blade only on that blade's assigned
+  monitor, including when the current workspace has no windows.
+- **E-34-15** Undocking starts a native window on the blade's monitor. I can
+  then move it normally; changing focus or monitor settings does not move it
+  back to its creation monitor.
+- **E-34-16** Unplugging the source monitor during a held module or file drag
+  cancels it. The layout and files stay unchanged, and no paste is dispatched.
+
+## 35. Extensions on a shell that hides plugins from each other
+
+This file was written by an agent.
+
+- **E-35-01** On Omarchy 4.0.3, where a plugin is told only about itself, my
+  installed FileBlade extensions still appear as tabs with their contents. The
+  Welcome tab, the module picker and the settings sheet list them exactly as
+  they do on 4.0.2.
+- **E-35-02** Disabling an extension with `omarchy plugin disable` removes its
+  tab within a few seconds without restarting the shell, and the extension
+  stops watching my files. Enabling it again brings the tab back the same way.
+- **E-35-03** Installing an extension while FileBlade is running makes it
+  available within a few seconds of enabling it. Closing and reopening one
+  blade also picks it up, even when my other blade stayed open the whole time.
+- **E-35-04** If the list of installed plugins cannot be read, the extensions I
+  already have keep their tabs but are shown as unavailable rather than
+  silently continuing to run.
+- **E-35-05** An extension built before this change still works on a shell that
+  discloses plugins to each other, and says it needs an update on one that does
+  not, rather than showing an empty tab.

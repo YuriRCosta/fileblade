@@ -31,9 +31,23 @@ Item {
     var entries = extensions[socketKey]
     return Array.isArray(entries) && entries.length > 0
   }
+  property var catalogProviders: []
+
+  function catalogRow(id) {
+    var rows = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i] && String(rows[i].id) === String(id)) return rows[i]
+    return null
+  }
   function providerEnabled(id) {
+    var key = String(id || "")
+    var installed = registry && registry.installedPlugins ? registry.installedPlugins : ({})
+    if (!installed[key]) {
+      var row = catalogRow(key)
+      if (row) return row.enabled === true
+    }
     if (!registry || typeof registry.isEnabled !== "function") return true
-    return !!registry.isEnabled(String(id || ""))
+    return !!registry.isEnabled(key)
   }
   function userDirectory() {
     return service && service.bladeHost ? service.bladeHost.configDir + "/actions" : ""
@@ -48,6 +62,14 @@ Item {
       if (!contributes(manifest) || !manifest.__sourceDir) continue
       if (!providerEnabled(ids[i])) continue
       parameters.push("--provider", ids[i] + "=" + String(manifest.__sourceDir))
+      providers++
+    }
+    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
+    for (var j = 0; j < catalog.length && providers < maximumProviders; j++) {
+      var row = catalog[j]
+      if (!row || row.enabled !== true || !row.id || !row.dir) continue
+      if (installed[row.id] || !contributes(row.manifest)) continue
+      parameters.push("--provider", String(row.id) + "=" + String(row.dir))
       providers++
     }
     parameters.push("--user", userDirectory())
@@ -285,6 +307,7 @@ Item {
   }
   Component.onCompleted: refresh()
   onRegistryChanged: refresh()
+  onCatalogProvidersChanged: refresh()
   property Connections registryLink: Connections {
     target: controller.registry
     ignoreUnknownSignals: true

@@ -20,6 +20,7 @@
         "glyph": "",
         "description": "{{DESCRIPTION}}",
         "entry": "blades/Module.qml",
+        "provider": "Provider.qml",
         "singleton": true,
         "minHeight": 120,
         "hostContract": 2,

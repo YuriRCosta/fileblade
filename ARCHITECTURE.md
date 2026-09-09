@@ -156,7 +156,20 @@ The Rust-side default-open helper follows the same rule for drop-wheel opens.
 ![Blade layout](assets/docs/blade-layout.svg)
 
 ```yaml
-blade:   one screen edge, left or right. Open or closed, docked or undocked, focused or not
+blade:   one screen edge, left or right. Open or closed, docked or undocked, focused or not.
+         Rendered by one BladeSurface per screen; `monitorMode` decides which surfaces are
+         eligible. `active` (default): each edge shows only on the monitor Hyprland had
+         focused when that blade was opened, and stays there until closed; a shortcut
+         pressed while working elsewhere closes it, the next press opens it there.
+         `locked` + `monitorLock`: only that named output, and shortcuts always act there.
+         `all`: mirrored on every output (legacy `primary` becomes a lock to the first).
+         The layout itself is one shared document; only the per-edge invocation screen is
+         runtime state, adopted from the first focused monitor after a restart.
+         `lib/MonitorMode.js` is the single resolver; `BladeLayout.preferredScreen(edge)`
+         is where every unscreened command lands and is null while nothing is eligible.
+         Explicit ineligible targets are rejected, never redirected. A mode or lock change
+         that makes the owning screen ineligible drops focus ownership without touching
+         application focus and cancels an unanswered trash confirmation
 slot:    a vertical section of a blade holding one module; drag the divider to resize, collapse it, reorder it
 tab:     alternate module instances inside one slot, each with its own persisted state
 module:  the QML a slot loads; found by the registry, described in EXTENSIONS.md
@@ -166,7 +179,8 @@ Layout is one file, `~/.config/omarchy/fileblade/blades.json`:
 
 ```yaml
 version: 1
-monitorMode: all | primary
+monitorMode: active | all | locked
+monitorLock: ""  # named output when locked
 animations: true
 blades:
   left:
@@ -189,9 +203,19 @@ array, so a save never tears down and reloads every module.
 
 Docked blades are layer surfaces with an exclusive zone, which is why your
 tiled windows shift over. An undocked blade (Super+T while it has focus) is a
-plain Hyprland window you can tile and move like anything else.
+plain Hyprland window you can tile and move like anything else. Its screen is
+chosen once when entering window mode from the edge's invocation or lock
+target. Later compositor movement is retained, and focus reports use the
+native window's actual screen. Removing an output cancels its transient
+menus, wheels, drags and keyboard ownership; the saved lock is retained.
 
 ## Focus and keybindings
+
+Backend hover and drop hit testing resolve the logical point to its output
+and that output's shown special or active workspace. Explicit native-window
+focus checks the window's own output workspace. Direction routing receives
+each edge's monitor name and rejects blades anchored elsewhere, including on
+empty workspaces. An empty home name represents mirrored All mode.
 
 Pane-navigation bindings live in the user-owned
 `$XDG_CONFIG_HOME/omarchy/fileblade/keybindings.json` (defaulting to
@@ -229,7 +253,15 @@ and forgets the old workspace focus instead of restoring it over the
 application being opened. The drop wheel uses
 the same boundary before file or mixed batches, direct path pastes, and every
 action that opens or targets an editor, terminal, multiplexer, or application;
-known target windows are explicitly focused after their operation. New backend
+known target windows are explicitly focused after their operation. A drop
+target whose process is shared by another mapped window (single-process
+terminals) cannot be resolved through its process tree; `context.rs` marks it
+shared and resolves a herdr pane only when the live window title names one
+workspace across the herdr sessions found in that tree, revalidating title,
+process and pane at execution, while tmux and nvim in such a window are
+ambiguous. Ambiguous targets carry `ambiguous` and `reason`, lose their mux,
+hunk-pane, nvim and pane-paste actions, and the backend refuses those actions
+with the reason. New backend
 wheel actions default to this external boundary unless the focus policy marks
 them as local. Directory-only opens stay inside FileBlade and keep blade focus;
 in a mixed batch, folders navigate in the background and cannot reclaim focus
@@ -254,7 +286,7 @@ local function blade(method, fallback)
   return call
 end
 
-o.bind("SUPER + B", "Focus or close the left blade", blade("toggleBladeFocus left"))
+o.bind("SUPER + B", "Open or close the left blade", blade("toggleBladeFocus left"))
 o.bind("SUPER + W", "Close window or blade", blade("windowClose", "hl.dsp.window.close()"))
 o.bind("SUPER + LEFT", "Focus left (blade aware)", blade("focusDirection l", 'hl.dsp.focus({ direction = "l" })'))
 ```
@@ -340,6 +372,7 @@ export appears that neither `src/public_cli/` calls nor this list names, so
 adding a verb means deciding its status here.
 
 ```yaml
+setMonitorMode: blade settings Monitors choice (active | all | locked <monitor>); VM section 34
 windowClose:    host bind (Super+W) through bindings.lua
 windowResize:   host bind (Super+Minus, Super+Equals)
 windowSwap:     host bind (Super+Shift+arrows)
@@ -450,7 +483,7 @@ folderColorScope:           icon       what a folder color paints: icon, name, o
 trashRetentionDays:         7          days before Trash entries are pruned; 0 keeps them forever
 gitStatusPollIntervalMs:     5000       Git fallback base in ms; 6x while inotify is healthy, 0 disables it
 dropModifier:               space      drop-wheel hold key: space, alt, ctrl, shift, or meta
-monitorMode:                all        all screens, or primary (the first Quickshell screen)
+monitorMode:                active     invocation monitor; all mirrors, locked uses the saved monitorLock
 animateBlades:              true       slide blades open and closed
 checkUpdates:               true       the six-hourly git fetch described under Checkout update checks
 blades:                     omitted    optional full first-run left/right layout; supersedes the legacy layout keys above

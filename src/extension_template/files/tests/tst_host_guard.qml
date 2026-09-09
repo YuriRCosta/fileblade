@@ -4,60 +4,50 @@ import "../HostGuard.js" as HostGuard
 
 TestCase {
   name: "HostGuard"
+  readonly property var self: ({ id: "{{PLUGIN_ID}}", name: "{{PLUGIN_NAME}}", enabled: true })
 
-  readonly property var host: ({ id: "data-goblin.fileblade", name: "FileBlade" })
-  readonly property var skills: ({ id: "data-goblin.fileblade-skills", name: "Skills", extensions: { "data-goblin.fileblade/blade": [] } })
-  readonly property var memory: ({ id: "data-goblin.fileblade-memory", name: "Memory", extensions: { "data-goblin.fileblade/helper": [] } })
-  readonly property var weather: ({ id: "acme.weather", name: "Weather", extensions: { "acme.other/thing": [] } })
-
-  function enabledExcept(disabled) {
-    return function(id) { return disabled.indexOf(id) === -1 }
+  function snapshot(state, plugins) {
+    return { schemaVersion: 1, state: state, plugins: plugins === undefined ? [self] : plugins }
   }
 
-  function test_host_enabled_shows_nothing() {
-    var plan = HostGuard.plan({ "data-goblin.fileblade": host, "data-goblin.fileblade-skills": skills }, enabledExcept([]), "data-goblin.fileblade-skills")
-    compare(plan.show, false)
+  function test_a_ready_host_shows_nothing() {
+    compare(HostGuard.plan(snapshot("ready"), self.id).show, false)
+    compare(HostGuard.plan(null, self.id).show, false)
+    compare(HostGuard.plan({ schemaVersion: 2, state: "missing" }, self.id).show, false)
   }
 
-  function test_host_missing_never_installs_anything() {
-    var plan = HostGuard.plan({ "data-goblin.fileblade-skills": skills, "acme.weather": weather }, enabledExcept([]), "data-goblin.fileblade-skills")
-    compare(plan.show, true)
+  function test_a_missing_host_never_offers_to_install_it() {
+    var plan = HostGuard.plan(snapshot("missing"), self.id)
+    verify(plan.show)
+    compare(plan.command, [])
     compare(plan.action, "")
-    compare(plan.command, [], "an extension never fetches or installs the host")
     verify(plan.message.indexOf("never installs it for you") > 0)
-    compare(plan.names, ["Skills"])
   }
 
-  function test_no_plan_ever_carries_a_remote_fetch() {
-    var plans = [
-      HostGuard.plan({ "data-goblin.fileblade-skills": skills }, enabledExcept([]), "data-goblin.fileblade-skills"),
-      HostGuard.plan({ "data-goblin.fileblade": host, "data-goblin.fileblade-skills": skills }, enabledExcept(["data-goblin.fileblade"]), "data-goblin.fileblade-skills")
-    ]
-    for (var i = 0; i < plans.length; i++) {
-      var script = plans[i].command.length > 2 ? plans[i].command[2] : ""
-      verify(script.indexOf("plugin add") === -1, "no plugin add: " + script)
-      verify(script.indexOf("git") === -1, "no git: " + script)
-      verify(script.indexOf("http") === -1, "no url: " + script)
+  function test_a_disabled_host_offers_to_enable_it() {
+    var plan = HostGuard.plan(snapshot("disabled"), self.id)
+    verify(plan.show)
+    compare(plan.action, "Enable")
+    verify(plan.command[2].indexOf("omarchy plugin enable data-goblin.fileblade") >= 0)
+  }
+
+  function test_starting_or_unknown_waits_rather_than_claiming_it_is_absent() {
+    for (var state of ["starting", "unknown"]) {
+      var plan = HostGuard.plan(snapshot(state), self.id)
+      verify(plan.show)
+      compare(plan.command, [])
+      compare(plan.action, "")
+      verify(plan.message.indexOf("not installed") === -1)
     }
   }
 
-  function test_only_first_extension_shows_and_lists_all() {
-    var installed = { "data-goblin.fileblade-skills": skills, "data-goblin.fileblade-memory": memory }
-    compare(HostGuard.plan(installed, enabledExcept([]), "data-goblin.fileblade-memory").show, true)
-    compare(HostGuard.plan(installed, enabledExcept([]), "data-goblin.fileblade-skills").show, false)
-    compare(HostGuard.plan(installed, enabledExcept([]), "data-goblin.fileblade-memory").names, ["Memory", "Skills"])
-    compare(HostGuard.plan(installed, enabledExcept(["data-goblin.fileblade-memory"]), "data-goblin.fileblade-skills").show, true)
-  }
-
-  function test_host_installed_but_disabled_offers_enable() {
-    var plan = HostGuard.plan({ "data-goblin.fileblade": host, "data-goblin.fileblade-skills": skills }, enabledExcept(["data-goblin.fileblade"]), "data-goblin.fileblade-skills")
-    compare(plan.show, true)
-    compare(plan.action, "Enable")
-    verify(plan.command[2].indexOf("omarchy plugin enable data-goblin.fileblade 2>&1") > 0)
-    verify(plan.message.indexOf("installed but disabled") > 0)
-  }
-
-  function test_no_registry_data_shows_nothing() {
-    compare(HostGuard.plan(null, enabledExcept([]), "data-goblin.fileblade-skills").show, false)
+  function test_no_plan_ever_carries_a_remote_fetch() {
+    for (var state of ["missing", "disabled", "starting", "unknown", "ready"]) {
+      var plan = HostGuard.plan(snapshot(state), self.id)
+      var command = plan.command.join(" ")
+      verify(command.indexOf("plugin add") < 0)
+      verify(command.indexOf("git") < 0)
+      verify(command.indexOf("://") < 0)
+    }
   }
 }

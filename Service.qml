@@ -50,6 +50,35 @@ Item {
   }
 
   ArtifactActionController { id: artifactActions; service: service }
+  ExtensionCatalog {
+    id: extensionCatalog
+    service: service
+    watchPaths: [service.home + "/.config/omarchy", service.home + "/.config/omarchy/plugins"]
+    onRefreshed: bladeHost.registry.rescan()
+  }
+
+  Connections {
+    target: service
+    function onBackendReadyChanged() {
+      if (!service.backendReady) return
+      extensionCatalog.refresh()
+      extensionCatalog.watch()
+    }
+    function onPluginRegistryChanged() { if (service.backendReady) extensionCatalog.refresh() }
+  }
+
+  Connections {
+    target: bladeHost
+    function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }
+  }
+  ExtensionProviders {
+    id: extensionProviders
+    providers: extensionCatalog.providers
+    disclosed: service.pluginRegistry && service.pluginRegistry.installedPlugins ? service.pluginRegistry.installedPlugins : ({})
+    files: service
+    inventoryUrl: service.pluginDir ? "file://" + service.pluginDir + "/ui/ArtifactInventory.qml" : ""
+  }
+  readonly property alias extensionCatalog: extensionCatalog
   KeybindingsController { id: keybindings; service: service }
   readonly property alias keybindings: keybindings
   WelcomeController { id: welcomeController; service: service }
@@ -75,7 +104,13 @@ Item {
   }
 
   function moduleDirs(id, callback) { return bladeHost.dirs.ensure(id, callback) }
-  readonly property var services: ({ files: service, actions: actionController })
+  readonly property var services: {
+    var map = ({ files: service, actions: actionController })
+    var supplied = extensionProviders.services
+    var ids = supplied ? Object.keys(supplied) : []
+    for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]
+    return map
+  }
 
   property alias stateReady: stateController.ready
   property alias bladeHost: bladeHost
@@ -136,6 +171,8 @@ Item {
     id: bladeHost
     shell: service.shell
     pluginRegistry: service.pluginRegistry
+    catalogProviders: extensionCatalog.providers
+    providerErrors: extensionProviders.errors
     pluginDir: service.pluginDir
     config: service.pluginConfig()
     services: service.services
@@ -146,8 +183,16 @@ Item {
     }
   }
 
-  signal locationValidationFinished(var targetScreen, bool success, string path, string error)
+  signal locationValidationFinished(var targetScreen, bool success, string path, string error, string monitor)
   signal trashConfirmationRequested(var paths)
+  property var pendingTrashPaths: []
+  property int trashConfirmationSerial: 0
+  function resolveTrashConfirmation(confirm) {
+    var paths = Array.isArray(pendingTrashPaths) ? pendingTrashPaths.slice() : []
+    pendingTrashPaths = []
+    if (confirm && paths.length > 0) operationController.trashSelection(paths)
+    return paths.length
+  }
   signal treeRowsReplacing()
 
   property alias treeModel: treeController.model
@@ -528,6 +573,7 @@ Item {
   ActionController {
     id: actionController
     service: service
+    catalogProviders: extensionCatalog.providers
   }
 
   ConfigController {
@@ -729,7 +775,7 @@ Item {
   function cyclePriorityProperty() { return navigationController.cyclePriorityProperty() }
   function setSettingsOpen(value, edge) { navigationController.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return navigationController.toggleSettings(edge) }
-  function focusTree(targetScreen, later) { return later ? navigationController.focusAfterOpen() : navigationController.focusTree(targetScreen) }
+  function focusTree(targetScreen, later) { return later ? navigationController.focusAfterOpen(targetScreen) : navigationController.focusTree(targetScreen) }
   function focusSearch(targetScreen) { return navigationController.focusSearch(targetScreen) }
   function focusLocation(targetScreen) { return navigationController.focusLocation(targetScreen) }
   function focusProperties(targetScreen) { return navigationController.focusProperties(targetScreen) }
@@ -1035,7 +1081,9 @@ Item {
 
   function openInEditor(path) { return enqueueLaunch(path, "editor", "") }
 
-  function defaultOpenScreen(targetScreen) { return targetScreen || (actionMenuOpen && actionMenuScreen ? actionMenuScreen : (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)) }
+  function preferredScreen() { return bladeHost.preferredScreen() }
+  function referenceScreen(candidate) { return bladeHost.referenceScreen(candidate) }
+  function defaultOpenScreen(targetScreen) { return targetScreen || (actionMenuOpen && actionMenuScreen ? actionMenuScreen : bladeHost.referenceScreen(null)) }
 
   function openDefault(path, targetScreen, directoryHint) {
     return enqueueLaunch(path, "default", "", defaultOpenScreen(targetScreen), directoryHint)
