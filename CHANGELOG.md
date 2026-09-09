@@ -7,7 +7,16 @@ This file was written by an agent.
 - Show available release versions instead of commit counts.
 - List companion updates separately, with one bullet per extension.
 
-## 0.1.0-beta.1 (unreleased)
+## 0.1.2
+
+- Add a pinned release workflow with backend binary signing.
+
+## 0.1.1
+
+- Bound plugin operations and require explicit consent before cleanup.
+- Ask once whether FileBlade may empty the trash automatically.
+
+## 0.1.0
 
 - Install the Welcome extensions at reviewed commits and refuse installation if a pin is unavailable.
 - Keep recent trash-test fixtures relative to the test run so retention checks do not fail as dates pass.
