@@ -4,8 +4,11 @@ This file was written by an agent.
 
 ## 0.1.3 (unreleased)
 
-- Show available release versions instead of commit counts.
-- List companion updates separately, with one bullet per extension.
+- UI changes
+  - Font size: scale the text in every blade from the General settings.
+- Update notification
+  - Name the available release version instead of counting commits.
+  - List companion updates separately, one bullet per extension.
 
 ## 0.1.2
 
